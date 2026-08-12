@@ -60,6 +60,12 @@ final class VoiceVisualizerViewModel: ObservableObject {
         finishSessionSummary()
         hasReplay = !capture.session.isEmpty
         state = .ready
+
+        Task {
+            // Give Speech Recognition a moment to deliver its final partial result.
+            try? await Task.sleep(for: .milliseconds(500))
+            analyzeAndRoast()
+        }
     }
 
     func replay() {

@@ -22,10 +22,7 @@ enum AIAnalysisError: LocalizedError {
 
 final class AIAnalysisService {
     func analyze(transcript: String, summary: SessionSummary) async throws -> String {
-        guard let apiKey = UserDefaults.standard.string(forKey: NineRouterConfiguration.apiKeyUserDefaultsKey),
-              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw AIAnalysisError.missingAPIKey
-        }
+        let apiKey = LocalSecrets.nineRouterAPIKey
 
         let prompt = """
         Analisis sesi suara berikut dan buat roasting yang lucu, ringan, dan tidak kejam.

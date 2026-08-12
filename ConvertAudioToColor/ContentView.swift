@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = VoiceVisualizerViewModel()
-    @AppStorage(NineRouterConfiguration.apiKeyUserDefaultsKey) private var nineRouterAPIKey = ""
 
     var body: some View {
         ScrollView {
@@ -15,9 +14,6 @@ struct ContentView: View {
                 } else {
                     EmotionTimelineChart(points: model.emotionTimeline)
                         .frame(height: 220)
-                }
-                if model.summary != nil {
-                    AIAnalysisPanel(model: model, apiKey: $nineRouterAPIKey)
                 }
                 controls
             }
@@ -67,10 +63,21 @@ struct ContentView: View {
                         .tracking(1.5)
                     Text(summary.description)
                     Text("duration \(summary.duration, specifier: "%.1fs") · avg arousal \(summary.averageArousal, specifier: "%.2f")")
-                    Text(summary.emotionalConclusion)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if model.aiResult.isEmpty {
+                        Text(model.isAnalyzing ? "AI sedang membaca data emosimu dan menyiapkan roasting..." : summary.emotionalConclusion)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        ScrollView {
+                            Text(model.aiResult)
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.9))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 240)
+                    }
                     Text("Ini interpretasi karakter akustik suara, bukan diagnosis emosi.")
                         .font(.caption2)
                 }
@@ -114,51 +121,6 @@ struct ContentView: View {
         Color(hue: model.visual.hue,
               saturation: model.visual.saturation,
               brightness: model.visual.brightness)
-    }
-}
-
-struct AIAnalysisPanel: View {
-    @ObservedObject var model: VoiceVisualizerViewModel
-    @Binding var apiKey: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("AI ROASTING")
-                .font(.caption.weight(.bold))
-                .tracking(1.5)
-
-            SecureField("9Router API key", text: $apiKey)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-
-            Button {
-                model.analyzeAndRoast()
-            } label: {
-                Label(model.isAnalyzing ? "Analyzing..." : "Analyze & Roast",
-                      systemImage: model.isAnalyzing ? "hourglass" : "sparkles")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(model.isAnalyzing || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            if !model.transcript.isEmpty {
-                Text("Transcript: \(model.transcript)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
-            }
-
-            if !model.aiResult.isEmpty {
-                Text(model.aiResult)
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .textSelection(.enabled)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
     }
 }
 

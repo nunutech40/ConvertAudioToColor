@@ -11,7 +11,7 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Retain a bounded in-memory session buffer for local replay; do not create a recording file.
 - Replay the current temporary session on explicit user action.
 - Request Speech Recognition permission and create a temporary transcript for optional AI analysis.
-- Send transcript plus compact session features to an OpenAI-compatible 9Router endpoint only after explicit Analyze & Roast action.
+- After Stop, automatically send transcript plus compact session features to an OpenAI-compatible 9Router endpoint.
 - Extract energy, spectral sharpness, tension, pitch variation, pauses, and speech rhythm.
 - Improve weak-signal visibility with supported hardware input gain, adaptive noise-floor tracking, and signal-to-noise estimation.
 - Expose ambient noise as a separate acoustic feature; do not treat all noise as user emotion.
@@ -325,7 +325,7 @@ Add to `Info.plist`:
 
 Ask on Start, explain local processing and temporary in-memory replay. Never log raw audio, create a recording file, or upload anything. Clear the session buffer when the user discards it, when the session expires, and according to the background policy. Denied/restricted permission gets a clear Settings recovery path.
 
-AI analysis is optional. It uses the configured 9Router OpenAI-compatible endpoint with model `codexCombo` only after the user presses `Analyze & Roast`. API keys must stay in local secure configuration and must not be committed to the repository.
+AI analysis runs after Stop using the configured 9Router OpenAI-compatible endpoint with model `codexCombo`. API keys stay in ignored local configuration and must never be committed to the repository.
 
 ## Failure handling
 

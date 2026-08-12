@@ -122,7 +122,7 @@ Kemudian `AffectMapper` memilih emotion family seperti `Trust`, `Sadness`, `Ange
 
 ## AI analysis dan roasting
 
-Setelah sesi dihentikan, pengguna dapat menekan `Analyze & Roast`. Aplikasi mengirim data ringkas berikut ke 9Router:
+Setelah sesi dihentikan, aplikasi otomatis mengirim data ringkas berikut ke 9Router dan memasukkan hasil roasting ke kartu `SESSION SUMMARY`:
 
 - transcript sementara;
 - mood dominan dan mood sekunder;
@@ -138,7 +138,7 @@ Model: codexCombo
 Endpoint: /chat/completions
 ```
 
-API key tidak disimpan di source code. Key dimasukkan melalui field lokal pada aplikasi dan disimpan di `UserDefaults` perangkat untuk prototype. Untuk production, pindahkan request ini ke backend agar key tidak dapat diekstrak dari aplikasi iPhone.
+API key disimpan di file konfigurasi lokal yang di-ignore Git untuk development. Untuk production, pindahkan request ini ke backend agar key tidak dapat diekstrak dari aplikasi iPhone.
 
 Roasting dibuat playful dan tidak boleh menjadi diagnosis psikologis atau mengarang isi ucapan.
 

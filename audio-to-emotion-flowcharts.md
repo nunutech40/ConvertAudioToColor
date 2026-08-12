@@ -54,12 +54,11 @@ flowchart TD
     Y -- Listening --> Z[Rolling Live Audio Chart - Swift Charts]
     Y -- Stop --> AA[Emotion Timeline seluruh sesi - Swift Charts]
     AA --> AB[Session Summary bahasa manusia]
-    AB --> AC{User menekan Analyze and Roast?}
-    AC -- Tidak --> AD[Simpan ringkasan lokal sementara]
-    AC -- Ya --> AE[Gabungkan transcript + data emosi]
-    AE --> AF[AIAnalysisService - URLSession ke 9Router]
-    AF --> AG[Analisis emosi, isi ucapan, dan roasting playful]
-    AG --> AH[Tampilkan hasil AI]
+    AB --> AC[Stop memicu AI analysis otomatis]
+    AC --> AD[Gabungkan transcript + data emosi]
+    AD --> AE[AIAnalysisService - URLSession ke 9Router]
+    AE --> AF[Analisis emosi, isi ucapan, dan roasting playful]
+    AF --> AG[Inject hasil ke Session Summary]
 ```
 
 `AudioAnalyzer`, tahap preprocessing, `AffectMapper`, dan visualization mapping adalah logic aplikasi. Saat ini preprocessing dan visualization mapping masih berada di `AudioMath`/`VoiceVisualizerViewModel` agar sederhana; keduanya belum menjadi service terpisah. Tidak ada `EmotionMapper` bawaan iOS. `AffectMapper` merupakan ruleset produk berbasis valence/arousal yang dapat diuji dan dikalibrasi.
@@ -276,7 +275,7 @@ Dengan model ini, lonjakan merah/oranye singkat tetap terlihat pada timeline akh
 ```text
 Stop
   → SessionSummary + EmotionTimeline
-  → user menekan Analyze & Roast
+  → AI analysis otomatis
   → transcript sementara + data emosi ringkas
   → URLSession
   → 9Router /v1/chat/completions
