@@ -14,12 +14,12 @@ flowchart TD
     C --> D[Energy atau volume - RMS calculation + adaptive noise floor]
     C --> E[Sharpness - FFT dan spectral centroid]
     C --> F[Tension - spectral flux]
-    C --> G[Pitch variation - autocorrelation atau YIN]
+    C --> G[Pitch/intonation proxy - energy change; true pitch tracking belum dipakai]
     C --> H[Jeda dan silence - RMS threshold]
-    C --> I[Tempo atau ritme - energy envelope dan onset detection]
+    C --> I[Ritme proxy - perubahan energy antar frame]
     C --> J[Ambient noise dan signal-to-noise - AudioAnalyzer]
 
-    D --> K[Normalisasi dan smoothing - FeaturePreprocessor]
+    D --> K[Normalisasi dan smoothing - AudioMath + ViewModel]
     E --> K
     F --> K
     G --> K
@@ -40,7 +40,7 @@ flowchart TD
     N -- Disgust --> U[Palet hijau-kuning kusam; gerak terdistorsi]
     N -- Anticipation --> V[Palet oranye-pink; gerak meningkat]
 
-    O --> W[VisualizationMapper]
+    O --> W[Visualization mapping in ViewModel]
     P --> W
     Q --> W
     R --> W
@@ -50,10 +50,13 @@ flowchart TD
     V --> W
 
     W --> X[Hue, saturation, brightness, shape, motion, glow]
-    X --> Y[Visual mood di SwiftUI Canvas]
+    X --> Y{Mode tampilan}
+    Y -- Listening --> Z[Rolling Live Audio Chart - Swift Charts]
+    Y -- Stop --> AA[Emotion Timeline seluruh sesi - Swift Charts]
+    AA --> AB[Session Summary bahasa manusia]
 ```
 
-`AudioAnalyzer`, `FeaturePreprocessor`, `AffectMapper`, dan `VisualizationMapper` adalah komponen/fungsi yang dibuat oleh aplikasi. Tidak ada `EmotionMapper` bawaan iOS. `AffectMapper` merupakan ruleset produk berbasis valence/arousal yang dapat diuji dan dikalibrasi.
+`AudioAnalyzer`, tahap preprocessing, `AffectMapper`, dan visualization mapping adalah logic aplikasi. Saat ini preprocessing dan visualization mapping masih berada di `AudioMath`/`VoiceVisualizerViewModel` agar sederhana; keduanya belum menjadi service terpisah. Tidak ada `EmotionMapper` bawaan iOS. `AffectMapper` merupakan ruleset produk berbasis valence/arousal yang dapat diuji dan dikalibrasi.
 
 ## 2. Flowchart Object dan Teknologi
 
@@ -82,33 +85,35 @@ flowchart LR
     O --> R[Spectral Features]
     O --> S[Pitch / Variation]
     O --> T[Pause / Silence Detection]
+    O --> U[Noise Floor / Signal-to-Noise]
 
-    P --> U[AudioFeatures]
-    Q --> U
-    R --> U
-    S --> U
-    T --> U
+    P --> V[AudioFeatures]
+    Q --> V
+    R --> V
+    S --> V
+    T --> V
+    U --> V
 
-    U --> V[FeaturePreprocessor]
-    V --> W[AffectMapper - deterministic product logic]
-    W --> X[Arousal]
-    W --> Y[Valence]
-    W --> Z[Mood Family and Intensity]
+    V --> W[AudioMath + ViewModel - normalize/clamp/smooth]
+    W --> X[AffectMapper - deterministic product logic]
+    X --> Y[Arousal]
+    X --> Z[Valence]
+    X --> AA[Mood Family and Intensity]
 
-    X --> AA[VisualizationMapper]
-    Y --> AA
-    Z --> AA
-    U --> AA
+    Y --> AB[Visualization mapping in ViewModel]
+    Z --> AB
+    AA --> AB
+    V --> AB
 
-    AA --> AB[VisualizationState]
-    AB --> C
-    C --> AC[SwiftUI Canvas]
-    AC --> AD[Color / Gradient]
-    AC --> AE[Orb / Shape]
-    AC --> AF[Glow / Motion / Ripple]
+    AB --> AC[VisualizationState / Chart Color]
+    AC --> C
+    C --> AD[SwiftUI Swift Charts]
+    AD --> AE[Live Audio Chart]
+    AD --> AF[Emotion Timeline Chart]
+    C --> AG[Session Summary]
 
-    C --> AG[ListeningState and PlaybackState]
-    AG --> B
+    C --> AH[ListeningState and PlaybackState]
+    AH --> B
 ```
 
 ## 3. Tanggung Jawab Object
@@ -125,10 +130,11 @@ flowchart LR
 | `AVAudioPCMBuffer` | Sampel PCM sementara di RAM | Session store dan analyzer |
 | `AudioAnalyzer` | RMS, silence, FFT, spectral centroid/flux, pitch variation, noise floor, signal-to-noise | `AudioFeatures` |
 | `Accelerate/vDSP` | Windowing, FFT, magnitude, spectral features | Data spektrum ke analyzer |
-| `FeaturePreprocessor` | Normalisasi, clamping, smoothing, dan peak handling | Fitur stabil ke `AffectMapper` |
+| `AudioMath` + `VoiceVisualizerViewModel` | Normalisasi, clamping, smoothing, dan peak handling | Fitur stabil ke `AffectMapper` |
 | `AffectMapper` | Ruleset berbasis valence/arousal; bukan API bawaan atau detector universal | `AffectState` |
-| `VisualizationMapper` | Mengubah affect/audio menjadi hue, brightness, scale, glow, motion | `VisualizationState` |
-| `SwiftUI Canvas` | Menggambar visual dan animasi | Tampilan akhir di layar |
+| Visualization mapping di `VoiceVisualizerViewModel` | Mengubah affect/audio menjadi hue, brightness, scale, glow, dan warna chart | `VisualizationState` / chart color |
+| `Swift Charts` | Menggambar rolling live chart dan timeline emosi berwarna | Tampilan grafik di layar |
+| `Session Summary` | Menghitung rata-rata, peak, mood dominan/sekunder, dan kesimpulan bahasa manusia | Ringkasan sesi setelah Stop |
 
 ## 4. Model Data
 
@@ -165,6 +171,20 @@ struct VisualizationState: Sendable {
 }
 ```
 
+```swift
+struct AudioChartPoint: Identifiable, Sendable {
+    let id: Int
+    let level: Double
+    let frequency: Double
+}
+
+struct EmotionTimelinePoint: Identifiable, Sendable {
+    let id: Int
+    let level: Double
+    let family: EmotionFamily
+}
+```
+
 ## 5. Kebijakan Audio Sementara dan Replay
 
 ```text
@@ -178,14 +198,62 @@ Microphone
   │    → Speaker
   └─→ AudioAnalyzer
        → AudioFeatures
-       → FeaturePreprocessor
+  → AudioMath + ViewModel preprocessing
        → AffectMapper
        → AffectState
-       → VisualizationMapper
-       → VisualizationState
-       → SwiftUI Canvas
+  → Visualization mapping
+  → VisualizationState / chart colors
+  → Swift Charts
 ```
 
 Replay harus dipicu eksplisit oleh pengguna. Session buffer memiliki batas durasi atau memory budget; buffer tidak boleh tumbuh tanpa batas. Pengguna dapat menekan Discard untuk menghapus audio dari RAM. Audio tidak ditulis ke file dan tidak dikirim ke server.
 
-`Canvas` hanya bertugas menggambar. Semua logika audio, affect mapping, dan replay berada di luar `View`.
+## Algoritma paling penting
+
+Bagian paling penting adalah `AffectMapper`, karena di situlah fitur audio diterjemahkan menjadi arti visual dan emosi. FFT hanya membantu membaca karakter frekuensi; ia tidak otomatis mengetahui emosi.
+
+```text
+PCM buffer
+  → RMS energy
+  → adaptive noise floor + signal-to-noise
+  → Hann window + vDSP FFT
+  → spectral sharpness + spectral flux
+  → normalisasi + smoothing
+  → valence + arousal
+  → emotion family + intensity
+  → hue + saturation + chart color
+```
+
+Rumus produk saat ini:
+
+```text
+arousal = 0.45 × energy
+         + 0.22 × speechRhythm
+         + 0.20 × spectralFlux
+         + 0.13 × sharpness
+
+valence = 0.28
+        + 0.22 × pitchVariation
+        + 0.12 × energy
+        - 0.28 × spectralFlux
+        - 0.24 × pauseRatio
+```
+
+Nilai tersebut dihaluskan dan dipakai untuk memilih family seperti `Trust`, `Sadness`, `Anger`, `Fear`, `Joy`, dan `Anticipation`. Ini adalah ruleset produk yang dapat diuji dan dikalibrasi, bukan emotion detector bawaan iOS dan bukan klaim membaca perasaan subjektif pengguna.
+
+## Perbedaan chart live dan timeline
+
+```text
+Saat Listening:
+  AudioFeatures → 72 titik rolling → Live Audio Chart
+  Warna chart mengikuti mood saat ini.
+
+Saat Stop:
+  Semua frame sesi → maksimal 120 titik tampilan
+  Setiap titik memakai warna emotion family-nya sendiri
+  → Emotion Timeline + Session Summary
+```
+
+Dengan model ini, lonjakan merah/oranye singkat tetap terlihat pada timeline akhir, meskipun mood dominan sesi tetap hijau/Trust.
+
+Semua pemrosesan dilakukan lokal. `Swift Charts` hanya menggambar data ringkas; ia tidak memproses audio mentah.

@@ -15,6 +15,8 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Expose ambient noise as a separate acoustic feature; do not treat all noise as user emotion.
 - Map features to continuous valence/arousal coordinates, then to a mood family and intensity.
 - Map mood coordinates to hue, saturation, brightness, shape, motion, and glow.
+- Show a rolling live audio chart while listening.
+- After Stop, show the complete color-coded emotion timeline and a human-readable session summary.
 - Show live mood visualization and states: Ready, Listening, Paused, Permission Denied, Unavailable/Failed, Playing.
 - Stop capture when the app enters background/inactive; resume only after explicit user action.
 
@@ -29,9 +31,10 @@ iPhone microphone hardware
   -> AVAudioPCMBuffer / PCM samples (temporary RAM)
   -> AudioAnalyzer (RMS, FFT, spectral/pitch/time features)
   -> AffectMapper (valence/arousal + mood family)
-  -> VisualizationMapper
+  -> LiveAudioChart / EmotionTimelineChart (Swift Charts)
+  -> Visualization mapping in VoiceVisualizerViewModel
   -> Observable view-model state
-  -> SwiftUI Canvas/shapes/gradients
+  -> Swift Charts / SwiftUI layout
 
 Temporary PCM buffers
   -> AudioReplayService
@@ -48,7 +51,8 @@ Temporary PCM buffers
 - `AVAudioSession` input gain: use the maximum gain only when the current audio route supports setting it.
 - In-memory PCM session store: bounded temporary replay buffer; no file persistence.
 - `AVAudioPlayerNode`: replay scheduled `AVAudioPCMBuffer` chunks locally.
-- SwiftUI `Canvas`, `TimelineView`, gradients, shapes: rendering.
+- SwiftUI layout and styling: screen composition and controls.
+- Swift Charts: rolling live audio chart and post-session emotion timeline.
 - Swift concurrency/MainActor: ownership and state delivery.
 
 ## Architecture
@@ -60,7 +64,8 @@ ContentView
       -> InMemoryAudioSession (bounded PCM buffers)
       -> AudioAnalyzer (RMS, FFT, time/spectral features)
       -> AffectMapper (valence/arousal and mood labels)
-      -> VisualizationMapper
+      -> ChartState (live rolling points + completed emotion timeline)
+      -> Visualization mapping in VoiceVisualizerViewModel
       -> AudioReplayService (AVAudioEngine/AVAudioPlayerNode)
       -> VisualizationState
 ```
@@ -71,7 +76,8 @@ Responsibilities:
 - `InMemoryAudioSession`: retain bounded PCM chunks only for the current session; expose replay data and clear it explicitly.
 - `AudioAnalyzer`: convert buffers to compact `AudioFeatures`, track an adaptive noise floor, estimate signal-to-noise, and keep DSP off the UI path.
 - `AffectMapper`: apply the selected research-informed valence/arousal model and map coordinates to a mood family; this is product logic, not an iOS API.
-- `VisualizationMapper`: convert affect coordinates and intensity into color and motion parameters.
+- Visualization mapping: currently a small static mapping function in `VoiceVisualizerViewModel`; it can become a separate object later if the rules grow.
+- `ChartState`: expose recent live points while listening and complete mood-colored points after Stop.
 - `AudioReplayService`: schedule temporary PCM buffers to `AVAudioPlayerNode`; never export or write them to disk.
 - `VoiceVisualizerViewModel`: own user-visible state, coordinate services, handle errors/lifecycle, and publish on MainActor.
 - `ContentView`: render state and send intents; no AVAudioEngine or DSP inside `body`.
@@ -85,6 +91,8 @@ struct AudioFeatures: Sendable {
     let pauseRatio: Float
     let speechRhythm: Float
     let isSilent: Bool
+    let noiseLevel: Float
+    let signalToNoise: Float
 }
 
 struct AffectState: Sendable {
@@ -131,6 +139,89 @@ Use Russell's circumplex model as the continuous foundation:
 
 Use emotion-family labels inspired by Plutchik only as a vocabulary and visual breakdown. Plutchik is not a universal ground truth or an automatic classifier.
 
+## Algoritma inti — mana yang paling penting?
+
+Algoritma paling penting bukan FFT atau color wheel secara terpisah, tetapi **feature-to-affect mapping**: aturan yang mengubah fitur suara menjadi `valence`, `arousal`, `emotion family`, dan akhirnya warna. Jika mapping ini buruk, chart tetap bagus tetapi kesimpulan emosinya tidak bermakna.
+
+Urutan algoritmanya:
+
+### 1. RMS energy — seberapa kuat suara
+
+Untuk setiap PCM buffer, hitung root mean square:
+
+```text
+rms = sqrt(sum(sample²) / jumlah_sample)
+energy = clamp(rms × gain)
+```
+
+Dipakai untuk brightness, tinggi grafik, arousal, dan peak. Ini adalah sinyal paling stabil untuk live visualizer.
+
+### 2. Adaptive noise floor — bedakan suara dari kebisingan dasar
+
+Saat energy sedang rendah, aplikasi memperbarui baseline noise secara perlahan:
+
+```text
+noiseFloor baru = 0.985 × noiseFloor lama + 0.015 × energy sekarang
+signalToNoise = (energy - noiseFloor) / noiseFloor
+```
+
+Baseline tidak diperbarui ketika ada lonjakan besar, agar suara pengguna tidak dianggap sebagai noise. Ini membantu suara lemah dan mengukur ruangan ramai, tetapi tidak dapat memulihkan suara yang sudah tertutup noise sepenuhnya.
+
+### 3. FFT dan spectral sharpness — karakter frekuensi suara
+
+PCM diberi Hann window lalu diubah ke magnitude spectrum dengan `vDSP FFT`. Weighted spectral magnitude menghasilkan perkiraan apakah suara lebih low/dull atau high/sharp. Ini memengaruhi hue dan membedakan perubahan karakter suara.
+
+### 4. Spectral flux — perubahan mendadak
+
+Bandingkan magnitude spectrum frame sekarang dengan frame sebelumnya:
+
+```text
+flux = sum(max(0, spectrum_now - spectrum_previous))
+```
+
+Flux tinggi memengaruhi tension, pulse, dan kandidat mood seperti fear, anger, atau surprise.
+
+### 5. Normalisasi dan smoothing
+
+Semua fitur di-clamp ke rentang yang konsisten dan dihaluskan:
+
+```text
+smoothed = previous + (current - previous) × factor
+```
+
+Ini penting agar warna tidak berkedip karena satu frame yang tidak stabil.
+
+### 6. AffectMapper — aturan emosi produk
+
+Implementasi saat ini memakai ruleset deterministik:
+
+```text
+arousal = 0.45 × energy
+         + 0.22 × speechRhythm
+         + 0.20 × spectralFlux
+         + 0.13 × sharpness
+
+valence = 0.28
+        + 0.22 × pitchVariation
+        + 0.12 × energy
+        - 0.28 × spectralFlux
+        - 0.24 × pauseRatio
+```
+
+Setelah itu threshold memilih family seperti `Trust`, `Sadness`, `Anger`, `Fear`, `Joy`, atau `Anticipation`. Ini bukan algoritma bawaan Apple dan bukan model AI; ini ruleset produk yang harus dikalibrasi dengan rekaman uji dan feedback pengguna.
+
+### 7. Dua output chart
+
+```text
+Listening:
+AudioFeatures -> rolling live chart -> warna mood saat ini
+
+Stop:
+semua frame sesi -> downsample maksimal 120 titik
+                -> warna per emotion family
+                -> Emotion Timeline + human-readable summary
+```
+
 ```text
 AudioFeatures
   -> normalize and smooth
@@ -141,7 +232,7 @@ AudioFeatures
   -> hue + saturation + brightness + motion
 ```
 
-The initial `AffectMapper` is a deterministic, testable ruleset based on valence/arousal. It is not a pre-existing Apple algorithm. Its coefficients and thresholds are tunable product configuration and must be validated with user testing. A future ML model is a separate phase.
+The initial `AffectMapper` is a deterministic, testable ruleset based on valence/arousal. It is not a pre-existing Apple algorithm. Its coefficients and thresholds are tunable product configuration and must be validated with user testing. A future ML model is a separate phase. The current implementation uses energy-change as a pitch/rhythm proxy; it does not yet perform true pitch tracking or speech-tempo detection.
 
 Suggested initial families:
 
@@ -167,11 +258,23 @@ PCM buffer -> AudioAnalyzer -> normalize -> smooth -> AudioFeatures
 AudioFeatures -> AffectMapper -> valence/arousal -> mood family/intensity
 ```
 
-### Phase 2: frequency color and visual mapping
+### Phase 2: frequency color, live chart, and visual mapping
 
 ```text
 PCM buffer -> window -> FFT (vDSP) -> magnitudes
-           -> spectral features -> VisualizationMapper -> Canvas
+           -> spectral features -> visualization mapping -> Swift Charts
+```
+
+Live rendering utama saat ini menggunakan `Swift Charts`: level audio menjadi area/line chart, spectral sharpness menjadi garis pembanding, dan warna chart mengikuti mood frame saat ini.
+
+### Phase 4: post-session interpretation
+
+```text
+Session frames -> average/peak energy
+               -> average valence/arousal
+               -> dominant + secondary families
+               -> EmotionTimelineChart
+               -> human-readable conclusion
 ```
 
 Clamp and smooth all values; do not drive UI directly from noisy raw FFT output.
@@ -232,7 +335,7 @@ Unit-test normalization/clamping, silence, smoothing, feature extraction, valenc
 1. SwiftUI dark visualizer using fake `AudioFeatures` and `AffectState`, color-wheel palette, and preview/demo mode.
 2. `AVAudioSession` permission + `AVAudioEngine` input tap, safe start/stop, RMS volume, and bounded in-memory PCM session.
 3. vDSP spectral features, deterministic valence/arousal `AffectMapper`, smoothing, color mapping, and focused tests.
-4. Local replay with `AVAudioPlayerNode`, lifecycle/error UI, memory limits, and performance verification.
+4. Local replay with `AVAudioPlayerNode`, Swift Charts live/timeline views, lifecycle/error UI, memory limits, and performance verification.
 
 ## Acceptance criteria
 
@@ -241,6 +344,8 @@ Unit-test normalization/clamping, silence, smoothing, feature extraction, valenc
 - Start/Stop works repeatedly without duplicate taps.
 - Acoustic features change valence/arousal and the resulting visual mood.
 - Intensity changes brightness, scale, glow, and motion.
+- Live chart shows the current rolling audio signal while listening.
+- Stopped sessions show a color-coded emotion timeline and readable summary.
 - Current session can be replayed locally from bounded RAM buffers.
 - No raw audio persistence/transmission and no unbounded memory growth.
 - Backgrounding, denial, interruption, and unavailable input are safe.
