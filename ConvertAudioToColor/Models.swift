@@ -46,6 +46,12 @@ struct AudioChartPoint: Identifiable, Sendable, Equatable {
     let frequency: Double
 }
 
+struct EmotionTimelinePoint: Identifiable, Sendable, Equatable {
+    let id: Int
+    let level: Double
+    let family: EmotionFamily
+}
+
 struct SessionSummary: Sendable, Equatable {
     var duration: TimeInterval = 0
     var averageEnergy: Float = 0

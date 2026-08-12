@@ -10,6 +10,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
     @Published var hasReplay = false
     @Published var summary: SessionSummary?
     @Published var chartPoints = [AudioChartPoint]()
+    @Published var emotionTimeline = [EmotionTimelinePoint]()
 
     let capture = AudioCaptureService()
     private let replayService = AudioReplayService()
@@ -101,6 +102,9 @@ final class VoiceVisualizerViewModel: ObservableObject {
         sessionSamples.append(affect)
         sessionEnergies.append(smoothed.energy)
         appendChartPoint(for: smoothed)
+        emotionTimeline.append(EmotionTimelinePoint(id: chartSequence,
+                                                     level: Double(smoothed.energy),
+                                                     family: affect.family))
     }
 
     private func appendChartPoint(for features: AudioFeatures) {
@@ -120,6 +124,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
         sessionEnergies.removeAll(keepingCapacity: true)
         lastFeatures = AudioFeatures()
         chartPoints.removeAll(keepingCapacity: true)
+        emotionTimeline.removeAll(keepingCapacity: true)
         chartSequence = 0
     }
 

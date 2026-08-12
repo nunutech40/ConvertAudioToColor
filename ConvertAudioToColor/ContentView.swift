@@ -8,8 +8,13 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 22) {
                 header
-                LiveAudioChart(points: model.chartPoints, color: currentColor)
-                    .frame(height: 220)
+                if model.state == .listening || model.emotionTimeline.isEmpty {
+                    LiveAudioChart(points: model.chartPoints, color: currentColor)
+                        .frame(height: 220)
+                } else {
+                    EmotionTimelineChart(points: model.emotionTimeline)
+                        .frame(height: 220)
+                }
                 controls
             }
             .padding(24)
@@ -150,6 +155,57 @@ struct LiveAudioChart: View {
     private var xDomain: ClosedRange<Int> {
         guard let first = points.first?.id, let last = points.last?.id else { return 0...1 }
         return first == last ? first...(last + 1) : first...last
+    }
+}
+
+struct EmotionTimelineChart: View {
+    let points: [EmotionTimelinePoint]
+
+    var body: some View {
+        Chart(displayPoints) { point in
+            BarMark(
+                x: .value("Time", point.id),
+                y: .value("Intensity", point.level)
+            )
+            .foregroundStyle(by: .value("Mood", point.family.rawValue))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+        }
+        .chartYScale(domain: 0...1)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(position: .bottom, spacing: 10)
+        .chartForegroundStyleScale(
+            domain: EmotionFamily.allCases.map(\.rawValue),
+            range: EmotionFamily.allCases.map(color(for:))
+        )
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
+        .overlay(alignment: .topLeading) {
+            Text("EMOTION TIMELINE")
+                .font(.caption2.weight(.bold).monospaced())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private var displayPoints: [EmotionTimelinePoint] {
+        guard points.count > 120 else { return points }
+        let step = Double(points.count) / 120.0
+        return (0..<120).map { index in
+            points[min(Int(Double(index) * step), points.count - 1)]
+        }
+    }
+
+    private func color(for family: EmotionFamily) -> Color {
+        switch family {
+        case .sadness: Color(hue: 0.62, saturation: 0.8, brightness: 0.85)
+        case .anger: Color(hue: 0.01, saturation: 0.9, brightness: 0.9)
+        case .fear: Color(hue: 0.72, saturation: 0.8, brightness: 0.85)
+        case .joy: Color(hue: 0.12, saturation: 0.9, brightness: 0.95)
+        case .trust: Color(hue: 0.45, saturation: 0.65, brightness: 0.75)
+        case .surprise: Color(hue: 0.88, saturation: 0.85, brightness: 0.9)
+        case .disgust: Color(hue: 0.25, saturation: 0.75, brightness: 0.75)
+        case .anticipation: Color(hue: 0.06, saturation: 0.85, brightness: 0.9)
+        }
     }
 }
 
