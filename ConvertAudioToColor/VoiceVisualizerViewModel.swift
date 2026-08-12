@@ -136,11 +136,14 @@ final class VoiceVisualizerViewModel: ObservableObject {
         let averageValence = sessionSamples.map(\.valence).reduce(0, +) / Float(sessionSamples.count)
         let averageArousal = sessionSamples.map(\.arousal).reduce(0, +) / Float(sessionSamples.count)
         let counts = Dictionary(grouping: sessionSamples, by: \.family).mapValues(\.count)
-        let dominantFamily = counts.max { $0.value < $1.value }?.key ?? .trust
+        let rankedFamilies = counts.sorted { $0.value > $1.value }.map(\.key)
+        let dominantFamily = rankedFamilies.first ?? .trust
+        let secondaryFamilies = rankedFamilies.dropFirst().filter { (counts[$0] ?? 0) >= 2 }.prefix(2)
 
         summary = SessionSummary(duration: duration, averageEnergy: averageEnergy,
                                  peakEnergy: peakEnergy, averageValence: averageValence,
                                  averageArousal: averageArousal, dominantFamily: dominantFamily,
+                                 secondaryFamilies: Array(secondaryFamilies),
                                  sampleCount: sessionSamples.count)
     }
 

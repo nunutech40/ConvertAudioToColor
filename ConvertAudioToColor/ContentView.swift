@@ -170,19 +170,40 @@ struct EmotionTimelineChart: View {
             .foregroundStyle(by: .value("Mood", point.family.rawValue))
             .clipShape(RoundedRectangle(cornerRadius: 3))
         }
-        .chartYScale(domain: 0...1)
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartLegend(position: .bottom, spacing: 10)
-        .chartForegroundStyleScale(
-            domain: EmotionFamily.allCases.map(\.rawValue),
-            range: EmotionFamily.allCases.map(color(for:))
-        )
+                .chartYScale(domain: 0...yDomainMaximum)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartLegend(.hidden)
+                .chartForegroundStyleScale(domain: presentFamilies.map(\.rawValue),
+                                            range: presentFamilies.map(color(for:)))
         .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
         .overlay(alignment: .topLeading) {
-            Text("EMOTION TIMELINE")
-                .font(.caption2.weight(.bold).monospaced())
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("EMOTION TIMELINE")
+                    .font(.caption2.weight(.bold).monospaced())
+                    .foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                    ForEach(presentFamilies, id: \.self) { family in
+                        Label(family.rawValue, systemImage: "circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(color(for: family))
+                    }
+                    }
+                }
+                .frame(maxWidth: 300)
+            }
+            .padding(12)
+        }
+        .overlay(alignment: .bottom) {
+            HStack {
+                Text("START")
+                Spacer()
+                Text("END")
+            }
+            .font(.caption2.monospaced())
+            .foregroundStyle(.secondary)
+            .padding(12)
         }
         .padding(.horizontal, 8)
     }
@@ -193,6 +214,14 @@ struct EmotionTimelineChart: View {
         return (0..<120).map { index in
             points[min(Int(Double(index) * step), points.count - 1)]
         }
+    }
+
+    private var presentFamilies: [EmotionFamily] {
+        EmotionFamily.allCases.filter { family in points.contains { $0.family == family } }
+    }
+
+    private var yDomainMaximum: Double {
+        max(0.25, (points.map(\.level).max() ?? 0.25) * 1.2)
     }
 
     private func color(for family: EmotionFamily) -> Color {

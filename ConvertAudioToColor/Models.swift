@@ -59,6 +59,7 @@ struct SessionSummary: Sendable, Equatable {
     var averageValence: Float = 0
     var averageArousal: Float = 0
     var dominantFamily: EmotionFamily = .trust
+    var secondaryFamilies: [EmotionFamily] = []
     var sampleCount: Int = 0
 
     var description: String {
@@ -66,26 +67,27 @@ struct SessionSummary: Sendable, Equatable {
     }
 
     var emotionalConclusion: String {
+        let secondaryText = secondaryFamilies.isEmpty ? "" : " Ada juga perubahan singkat menuju " + secondaryFamilies.map(\.rawValue).joined(separator: ", ") + "."
         switch dominantFamily {
         case .trust:
             if averageArousal < 0.3 {
-                return "Karakter suaramu terdengar tenang dan cukup stabil, dengan kecenderungan positif ringan. Tidak terlihat intensitas emosi yang kuat."
+                return "Karakter suaramu terdengar tenang dan cukup stabil, dengan kecenderungan positif ringan. Tidak terlihat intensitas emosi yang kuat." + secondaryText
             }
-            return "Karakter suaramu terdengar cukup positif dan stabil, dengan energi sedang."
+            return "Karakter suaramu terdengar cukup positif dan stabil, dengan energi sedang." + secondaryText
         case .sadness:
-            return "Karakter suaramu terdengar lebih pelan dan berenergi rendah, dengan kecenderungan suasana yang lebih berat atau murung."
+            return "Karakter suaramu terdengar lebih pelan dan berenergi rendah, dengan kecenderungan suasana yang lebih berat atau murung." + secondaryText
         case .anger:
-            return "Karakter suaramu menunjukkan energi tinggi dan perubahan yang cukup tajam, sehingga terbaca sebagai suasana tegang atau kesal."
+            return "Karakter suaramu menunjukkan energi tinggi dan perubahan yang cukup tajam, sehingga terbaca sebagai suasana tegang atau kesal." + secondaryText
         case .fear:
-            return "Karakter suaramu menunjukkan energi tinggi yang tidak stabil, dengan perubahan cepat yang dapat terasa seperti tegang atau cemas."
+            return "Karakter suaramu menunjukkan energi tinggi yang tidak stabil, dengan perubahan cepat yang dapat terasa seperti tegang atau cemas." + secondaryText
         case .joy:
-            return "Karakter suaramu terdengar hidup dan berenergi, dengan kecenderungan suasana positif atau ceria."
+            return "Karakter suaramu terdengar hidup dan berenergi, dengan kecenderungan suasana positif atau ceria." + secondaryText
         case .surprise:
-            return "Karakter suaramu memiliki beberapa lonjakan energi yang mendadak, sehingga terasa spontan atau terkejut."
+            return "Karakter suaramu memiliki beberapa lonjakan energi yang mendadak, sehingga terasa spontan atau terkejut." + secondaryText
         case .disgust:
-            return "Karakter suaramu menunjukkan pola yang cukup berat dan tidak nyaman, dengan kecenderungan negatif."
+            return "Karakter suaramu menunjukkan pola yang cukup berat dan tidak nyaman, dengan kecenderungan negatif." + secondaryText
         case .anticipation:
-            return "Karakter suaramu menunjukkan energi yang meningkat, seolah ada dorongan atau antisipasi terhadap sesuatu."
+            return "Karakter suaramu menunjukkan energi yang meningkat, seolah ada dorongan atau antisipasi terhadap sesuatu." + secondaryText
         }
     }
 }
