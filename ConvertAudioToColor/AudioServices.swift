@@ -1,0 +1,101 @@
+import AVFoundation
+
+final class InMemoryAudioSession {
+    private(set) var buffers: [AVAudioPCMBuffer] = []
+    private let maxBuffers = 900
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        guard buffers.count < maxBuffers else { return }
+        buffers.append(buffer)
+    }
+
+    func clear() { buffers.removeAll() }
+    var isEmpty: Bool { buffers.isEmpty }
+}
+
+final class AudioCaptureService {
+    let engine = AVAudioEngine()
+    let session = InMemoryAudioSession()
+
+    private let analyzer = AudioAnalyzer()
+    private let queue = DispatchQueue(label: "audio.capture.analysis", qos: .userInitiated)
+    private var tapInstalled = false
+
+    var onFeatures: ((AudioFeatures) -> Void)?
+
+    func requestPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioSession.sharedInstance().requestRecordPermission {
+                continuation.resume(returning: $0)
+            }
+        }
+    }
+
+    func start() throws {
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.playAndRecord, mode: .measurement,
+                                     options: [.defaultToSpeaker, .allowBluetooth])
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+
+        let input = engine.inputNode
+        let format = input.outputFormat(forBus: 0)
+        if tapInstalled { input.removeTap(onBus: 0) }
+
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            guard let self else { return }
+            self.queue.async {
+                self.session.append(buffer)
+                let features = self.analyzer.analyze(buffer)
+                DispatchQueue.main.async { self.onFeatures?(features) }
+            }
+        }
+
+        tapInstalled = true
+        engine.prepare()
+        try engine.start()
+    }
+
+    func stop() {
+        if tapInstalled {
+            engine.inputNode.removeTap(onBus: 0)
+            tapInstalled = false
+        }
+        engine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}
+
+final class AudioReplayService {
+    private let engine = AVAudioEngine()
+    private let player = AVAudioPlayerNode()
+    private var isConnected = false
+
+    func play(buffers: [AVAudioPCMBuffer], completion: @escaping () -> Void) throws {
+        guard let first = buffers.first else { return }
+
+        let audioSession = AVAudioSession.sharedInstance()
+        try audioSession.setCategory(.playAndRecord, mode: .measurement,
+                                     options: [.defaultToSpeaker, .allowBluetooth])
+        try audioSession.setActive(true)
+
+        if !isConnected {
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: first.format)
+            isConnected = true
+        }
+
+        for (index, buffer) in buffers.enumerated() {
+            player.scheduleBuffer(buffer, completionHandler: index == buffers.count - 1 ? completion : nil)
+        }
+
+        engine.prepare()
+        try engine.start()
+        player.play()
+    }
+
+    func stop() {
+        player.stop()
+        engine.stop()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}

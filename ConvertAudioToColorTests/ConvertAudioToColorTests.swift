@@ -3,13 +3,13 @@ import XCTest
 
 final class ConvertAudioToColorTests: XCTestCase {
     func testNormalizationAndClamping() {
-        XCTAssertEqual(FeatureMath.normalized(5, min: 0, max: 10), 0.5)
-        XCTAssertEqual(FeatureMath.normalized(-2, min: 0, max: 10), 0)
-        XCTAssertEqual(FeatureMath.normalized(20, min: 0, max: 10), 1)
+        XCTAssertEqual(AudioMath.normalized(5, min: 0, max: 10), 0.5)
+        XCTAssertEqual(AudioMath.normalized(-2, min: 0, max: 10), 0)
+        XCTAssertEqual(AudioMath.normalized(20, min: 0, max: 10), 1)
     }
 
     func testSmoothingMovesTowardCurrentValue() {
-        let result = FeatureMath.smooth(previous: 0, current: 1, factor: 0.2)
+        let result = AudioMath.smooth(previous: 0, current: 1, factor: 0.2)
         XCTAssertEqual(result, 0.2, accuracy: 0.001)
     }
 
@@ -29,7 +29,7 @@ final class ConvertAudioToColorTests: XCTestCase {
 
     func testVisualizationIntensityIsBounded() {
         let affect = AffectState(valence: -1, arousal: 1, family: .anger, intensity: 1)
-        let visual = VoiceVisualizerViewModel.visualization(for: affect, features: AudioFeatures())
+        let visual = VoiceVisualizerViewModel.makeVisualization(for: affect, features: AudioFeatures())
         XCTAssertEqual(visual.hue, 0.01)
         XCTAssertGreaterThanOrEqual(visual.saturation, 0)
         XCTAssertLessThanOrEqual(visual.saturation, 1)
