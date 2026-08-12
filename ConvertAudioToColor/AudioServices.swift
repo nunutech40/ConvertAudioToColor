@@ -94,6 +94,7 @@ final class AudioCaptureService {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         if tapInstalled { input.removeTap(onBus: 0) }
+        transcript.start()
 
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self else { return }

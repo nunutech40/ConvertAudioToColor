@@ -1,6 +1,6 @@
 # Audio-to-Emotion Visualizer — Flowcharts & Technology Map
 
-Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengubah karakter suara menjadi mood visual berupa warna, bentuk, glow, dan animasi. Audio mentah hanya ditahan sementara di RAM agar sesi dapat dianalisis dan di-replay secara lokal.
+Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengubah karakter suara menjadi mood visual berupa warna, bentuk, glow, dan animasi. Audio mentah hanya ditahan sementara di RAM agar sesi dapat dianalisis dan di-replay secara lokal. Transcript dan analisis AI adalah tahap opsional setelah sesi dihentikan.
 
 ## 1. Flowchart Logic Bisnis
 
@@ -54,6 +54,12 @@ flowchart TD
     Y -- Listening --> Z[Rolling Live Audio Chart - Swift Charts]
     Y -- Stop --> AA[Emotion Timeline seluruh sesi - Swift Charts]
     AA --> AB[Session Summary bahasa manusia]
+    AB --> AC{User menekan Analyze and Roast?}
+    AC -- Tidak --> AD[Simpan ringkasan lokal sementara]
+    AC -- Ya --> AE[Gabungkan transcript + data emosi]
+    AE --> AF[AIAnalysisService - URLSession ke 9Router]
+    AF --> AG[Analisis emosi, isi ucapan, dan roasting playful]
+    AG --> AH[Tampilkan hasil AI]
 ```
 
 `AudioAnalyzer`, tahap preprocessing, `AffectMapper`, dan visualization mapping adalah logic aplikasi. Saat ini preprocessing dan visualization mapping masih berada di `AudioMath`/`VoiceVisualizerViewModel` agar sederhana; keduanya belum menjadi service terpisah. Tidak ada `EmotionMapper` bawaan iOS. `AffectMapper` merupakan ruleset produk berbasis valence/arousal yang dapat diuji dan dikalibrasi.
@@ -66,58 +72,60 @@ flowchart LR
     B --> C[VoiceVisualizerViewModel MainActor]
     C --> D[SpeechTranscriptService - Speech framework]
     D --> C
-    C --> E[AIAnalysisService - 9Router codexCombo]
-    E --> C
+    C --> E{Analyze and Roast ditekan?}
+    E -- Ya --> F[AIAnalysisService - URLSession]
+    F --> G[9Router /v1/chat/completions - codexCombo]
+    G --> C
 
-    C --> F[AudioCaptureService]
-    F --> G[AVAudioSession]
-    G --> H[iOS Audio Subsystem]
-    H --> I[Microphone Hardware]
+    C --> H[AudioCaptureService]
+    H --> I[AVAudioSession]
+    I --> J[iOS Audio Subsystem]
+    J --> K[Microphone Hardware]
 
-    F --> J[AVAudioEngine]
-    J --> K[Input Node Audio Tap]
-    K --> L[AVAudioPCMBuffer]
+    H --> L[AVAudioEngine]
+    L --> M[Input Node Audio Tap]
+    M --> N[AVAudioPCMBuffer]
 
-    L --> M[InMemoryAudioSession - bounded RAM]
-    M --> N[AudioReplayService]
-    N --> O[AVAudioPlayerNode]
-    O --> P[iPhone Speaker]
+    N --> O[InMemoryAudioSession - bounded RAM]
+    O --> P[AudioReplayService]
+    P --> Q[AVAudioPlayerNode]
+    Q --> R[iPhone Speaker]
 
-    L --> Q[AudioAnalyzer]
-    Q --> R[RMS / Energy]
-    Q --> S[vDSP FFT]
-    Q --> T[Spectral Features]
-    Q --> U[Pitch / Variation proxy]
-    Q --> V[Pause / Silence Detection]
-    Q --> W[Noise Floor / Signal-to-Noise]
+    N --> S[AudioAnalyzer]
+    S --> T[RMS / Energy]
+    S --> U[vDSP FFT]
+    S --> V[Spectral Features]
+    S --> W[Pitch / Variation proxy]
+    S --> X[Pause / Silence Detection]
+    S --> Y[Noise Floor / Signal-to-Noise]
 
-    R --> X[AudioFeatures]
-    S --> X
-    T --> X
-    U --> X
-    V --> X
-    W --> X
+    T --> Z[AudioFeatures]
+    U --> Z
+    V --> Z
+    W --> Z
+    X --> Z
+    Y --> Z
 
-    X --> Y[AudioMath + ViewModel - normalize/clamp/smooth]
-    Y --> Z[AffectMapper - deterministic product logic]
-    Z --> AA[Arousal]
-    Z --> AB[Valence]
-    Z --> AC[Mood Family and Intensity]
+    Z --> AA[AudioMath + ViewModel - normalize/clamp/smooth]
+    AA --> AB[AffectMapper - deterministic product logic]
+    AB --> AC[Arousal]
+    AB --> AD[Valence]
+    AB --> AE[Mood Family and Intensity]
 
-    AA --> AD[Visualization mapping in ViewModel]
-    AB --> AD
-    AC --> AD
-    X --> AD
+    AC --> AF[Visualization mapping in ViewModel]
+    AD --> AF
+    AE --> AF
+    Z --> AF
 
-    AD --> AE[VisualizationState / Chart Color]
-    AE --> C
-    C --> AF[SwiftUI Swift Charts]
-    AF --> AG[Live Audio Chart]
-    AF --> AH[Emotion Timeline Chart]
-    C --> AI[Session Summary]
+    AF --> AG[VisualizationState / Chart Color]
+    AG --> C
+    C --> AH[SwiftUI Swift Charts]
+    AH --> AI[Live Audio Chart]
+    AH --> AJ[Emotion Timeline Chart]
+    C --> AK[Session Summary]
 
-    C --> AH[ListeningState and PlaybackState]
-    AH --> B
+    C --> AL[ListeningState, PlaybackState, AIAnalysisState]
+    AL --> B
 ```
 
 ## 3. Tanggung Jawab Object
@@ -131,6 +139,7 @@ flowchart LR
 | `AudioReplayService` | Menjadwalkan buffer RAM untuk playback lokal | `AVAudioPlayerNode` dan speaker |
 | `SpeechTranscriptService` | Mengubah ucapan menjadi transcript sementara | `VoiceVisualizerViewModel` |
 | `AIAnalysisService` | Mengirim transcript dan ringkasan fitur ke 9Router setelah persetujuan eksplisit | Hasil analisis dan roasting |
+| `9Router` | Gateway OpenAI-compatible dengan model `codexCombo` | Response analisis AI |
 | `AVAudioSession` | Permission dan akses audio input/output | Status audio ke service |
 | `AVAudioEngine` | Menangkap audio real-time | Buffer audio melalui input tap |
 | `AVAudioPCMBuffer` | Sampel PCM sementara di RAM | Session store dan analyzer |
@@ -261,5 +270,21 @@ Saat Stop:
 ```
 
 Dengan model ini, lonjakan merah/oranye singkat tetap terlihat pada timeline akhir, meskipun mood dominan sesi tetap hijau/Trust.
+
+## Tahap AI Analysis dan Roasting
+
+```text
+Stop
+  → SessionSummary + EmotionTimeline
+  → user menekan Analyze & Roast
+  → transcript sementara + data emosi ringkas
+  → URLSession
+  → 9Router /v1/chat/completions
+  → model codexCombo
+  → analisis emosi + analisis isi ucapan + roasting playful
+  → tampilkan hasil AI
+```
+
+Yang dikirim ke AI adalah transcript dan fitur ringkas, bukan PCM/audio mentah. API key dimasukkan secara lokal pada prototype dan tidak boleh di-commit ke repository. Untuk production, request sebaiknya dipindahkan ke backend agar key tidak dapat diekstrak dari aplikasi iPhone.
 
 Semua pemrosesan dilakukan lokal. `Swift Charts` hanya menggambar data ringkas; ia tidak memproses audio mentah.

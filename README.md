@@ -162,6 +162,7 @@ ConvertAudioToColor/
 ├── Models.swift
 ├── AudioMath.swift
 ├── AudioAnalyzer.swift
+├── AIAnalysisService.swift
 ├── AudioServices.swift
 ├── AffectMapper.swift
 ├── VoiceVisualizerViewModel.swift
@@ -175,7 +176,7 @@ ConvertAudioToColor/
 
 ## Status implementasi
 
-Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline, session summary, replay lokal, dan adaptive noise detection.
+Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline, session summary, replay lokal, adaptive noise detection, Speech Recognition, dan integrasi opsional 9Router untuk analisis transcript serta roasting melalui tombol `Analyze & Roast` setelah sesi dihentikan.
 
 Build aplikasi berhasil dilakukan dengan Xcode. Validasi microphone, speaker, dan kualitas deteksi tetap perlu dilakukan di iPhone fisik karena Simulator tidak mewakili input microphone nyata.
 
