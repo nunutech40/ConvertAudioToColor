@@ -1,5 +1,16 @@
 # Voice to Color
 
+<div align="left">
+  <a href="https://saweria.co/nunugraha17">
+    <img src="https://img.shields.io/badge/Traktir%20di-Saweria-orange?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Saweria" />
+  </a>
+  <a href="https://www.buymeacoffee.com/nunutech401">
+    <img src="https://img.shields.io/badge/Buy%20Me%20A-Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee" />
+  </a>
+</div>
+
+---
+
 Voice to Color adalah aplikasi iPhone yang mengubah karakter suara menjadi visual dan interpretasi mood secara real-time.
 
 Aplikasi ini tidak mencoba membaca pikiran atau menentukan emosi pengguna secara mutlak. Aplikasi menganalisis karakter akustik suara—seperti energi, perubahan frekuensi, ketajaman, jeda, dan noise—lalu menerjemahkannya menjadi warna, grafik, dan kesimpulan mood.
@@ -59,7 +70,7 @@ Aplikasi juga menampilkan ringkasan yang lebih mudah dipahami, misalnya:
 - Session summary berupa energi rata-rata, peak, valence, arousal, mood dominan, dan mood sekunder.
 - Replay sesi secara lokal.
 - Speech Recognition untuk membuat transcript sementara.
-- Analisis AI dan roasting opsional setelah sesi selesai.
+- Analisis AI dan roasting otomatis setelah sesi selesai.
 - Penyimpanan audio sementara di RAM dengan batas buffer.
 - Adaptive noise floor untuk membantu membaca suara lemah dan kebisingan ruangan.
 - Signal-to-noise estimation.
@@ -122,7 +133,7 @@ Kemudian `AffectMapper` memilih emotion family seperti `Trust`, `Sadness`, `Ange
 
 ## AI analysis dan roasting
 
-Setelah sesi dihentikan, aplikasi otomatis mengirim data ringkas berikut ke 9Router dan memasukkan hasil roasting ke kartu `SESSION SUMMARY`:
+Setelah sesi dihentikan, aplikasi otomatis mengirim data ringkas berikut ke 9Router dan memasukkan hasil pembacaan ke kartu `SESSION SUMMARY`. Tidak ada panel API key di UI; konfigurasi 9Router berasal dari file lokal development:
 
 - transcript sementara;
 - mood dominan dan mood sekunder;
@@ -151,7 +162,8 @@ Audio diproses secara lokal di perangkat.
 - Tombol Discard menghapus buffer sesi.
 - Tidak ada file audio yang dibuat.
 - Tidak ada upload atau transmisi audio mentah.
-- Transcript dan ringkasan hanya dikirim ke AI setelah pengguna menekan `Analyze & Roast`.
+- Transcript sementara dan ringkasan fitur dikirim ke AI otomatis setelah sesi dihentikan.
+- Hasil AI diminta membahas kondisi secara umum dan melakukan roasting ringan tanpa mengutip atau membocorkan ucapan sensitif.
 - Permission microphone diminta setelah pengguna menekan Start.
 
 ## Struktur kode
@@ -176,7 +188,7 @@ ConvertAudioToColor/
 
 ## Status implementasi
 
-Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline, session summary, replay lokal, adaptive noise detection, Speech Recognition, dan integrasi opsional 9Router untuk analisis transcript serta roasting melalui tombol `Analyze & Roast` setelah sesi dihentikan.
+Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline setelah sesi selesai, session summary, replay lokal, adaptive noise detection, Speech Recognition, dan integrasi 9Router untuk analisis transcript serta roasting otomatis setelah sesi dihentikan.
 
 Build aplikasi berhasil dilakukan dengan Xcode. Validasi microphone, speaker, dan kualitas deteksi tetap perlu dilakukan di iPhone fisik karena Simulator tidak mewakili input microphone nyata.
 

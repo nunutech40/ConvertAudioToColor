@@ -10,7 +10,7 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Start/stop microphone capture and analyze audio in real time.
 - Retain a bounded in-memory session buffer for local replay; do not create a recording file.
 - Replay the current temporary session on explicit user action.
-- Request Speech Recognition permission and create a temporary transcript for optional AI analysis.
+- Request Speech Recognition permission and create a temporary transcript for automatic post-session AI analysis.
 - After Stop, automatically send transcript plus compact session features to an OpenAI-compatible 9Router endpoint.
 - Extract energy, spectral sharpness, tension, pitch variation, pauses, and speech rhythm.
 - Improve weak-signal visibility with supported hardware input gain, adaptive noise-floor tracking, and signal-to-noise estimation.
@@ -22,7 +22,7 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Show live mood visualization and states: Ready, Listening, Paused, Permission Denied, Unavailable/Failed, Playing.
 - Stop capture when the app enters background/inactive; resume only after explicit user action.
 
-Out of scope: speech-to-text, claims of reading a user's true subjective emotion, cloud upload, permanent recording, ML classification, and exact musical pitch detection.
+Out of scope: claims of reading a user's true subjective emotion, cloud upload of raw audio, permanent recording, ML classification, and exact musical pitch detection.
 
 ## Layer map
 
@@ -54,7 +54,7 @@ Temporary PCM buffers
 - In-memory PCM session store: bounded temporary replay buffer; no file persistence.
 - `AVAudioPlayerNode`: replay scheduled `AVAudioPCMBuffer` chunks locally.
 - `Speech`: temporary on-device/Apple speech recognition transcript, depending on the active iOS speech-recognition route.
-- `URLSession`: optional request to the configured 9Router OpenAI-compatible endpoint.
+- `URLSession`: automatic post-session request to the configured 9Router OpenAI-compatible endpoint.
 - SwiftUI layout and styling: screen composition and controls.
 - Swift Charts: rolling live audio chart and post-session emotion timeline.
 - Swift concurrency/MainActor: ownership and state delivery.
@@ -86,7 +86,7 @@ Responsibilities:
 - `ChartState`: expose recent live points while listening and complete mood-colored points after Stop.
 - `AudioReplayService`: schedule temporary PCM buffers to `AVAudioPlayerNode`; never export or write them to disk.
 - `SpeechTranscriptService`: turn session speech into a temporary transcript; clear it with the session.
-- `AIAnalysisService`: send compact features and transcript only after explicit user action; never send PCM buffers.
+- `AIAnalysisService`: automatically send compact features and transcript after Stop; never send PCM buffers.
 - `VoiceVisualizerViewModel`: own user-visible state, coordinate services, handle errors/lifecycle, and publish on MainActor.
 - `ContentView`: render state and send intents; no AVAudioEngine or DSP inside `body`.
 
