@@ -39,11 +39,11 @@ flowchart TD
     S --> T
 
     T --> U{Mood suara}
-    U -- Kesal --> V[Palette merah/orange<br/>Gerakan cepat dan tajam]
-    U -- Sedih --> W[Palette biru/indigo<br/>Gerakan lambat dan turun]
-    U -- Tenang --> X[Palette teal/cyan<br/>Gerakan halus dan stabil]
-    U -- Senang --> Y[Palette kuning/coral<br/>Gerakan memantul dan cerah]
-    U -- Cemas --> Z[Palette ungu/magenta<br/>Getaran dan pulse cepat]
+    U -- Kesal --> V[Palette merah orange - gerakan cepat dan tajam]
+    U -- Sedih --> W[Palette biru indigo - gerakan lambat dan turun]
+    U -- Tenang --> X[Palette teal cyan - gerakan halus dan stabil]
+    U -- Senang --> Y[Palette kuning coral - gerakan memantul dan cerah]
+    U -- Cemas --> Z[Palette ungu magenta - getaran dan pulse cepat]
 
     V --> AA[Update VisualizationState]
     W --> AA
@@ -72,8 +72,8 @@ Audio mentah hanya digunakan selama proses analisis. Data yang dikirim ke UI ber
 
 ```mermaid
 flowchart LR
-    A[User gesture] --> B[ContentView<br/>SwiftUI]
-    B --> C[VoiceVisualizerViewModel<br/>@MainActor]
+    A[User gesture] --> B[ContentView SwiftUI]
+    B --> C[VoiceVisualizerViewModel MainActor]
 
     C --> D[AudioCaptureService]
     D --> E[AVAudioSession]
