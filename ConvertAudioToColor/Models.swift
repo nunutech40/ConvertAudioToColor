@@ -58,6 +58,30 @@ struct SessionSummary: Sendable, Equatable {
     var description: String {
         String(format: "%@ · avg energy %.2f · peak %.2f", dominantFamily.rawValue, averageEnergy, peakEnergy)
     }
+
+    var emotionalConclusion: String {
+        switch dominantFamily {
+        case .trust:
+            if averageArousal < 0.3 {
+                return "Karakter suaramu terdengar tenang dan cukup stabil, dengan kecenderungan positif ringan. Tidak terlihat intensitas emosi yang kuat."
+            }
+            return "Karakter suaramu terdengar cukup positif dan stabil, dengan energi sedang."
+        case .sadness:
+            return "Karakter suaramu terdengar lebih pelan dan berenergi rendah, dengan kecenderungan suasana yang lebih berat atau murung."
+        case .anger:
+            return "Karakter suaramu menunjukkan energi tinggi dan perubahan yang cukup tajam, sehingga terbaca sebagai suasana tegang atau kesal."
+        case .fear:
+            return "Karakter suaramu menunjukkan energi tinggi yang tidak stabil, dengan perubahan cepat yang dapat terasa seperti tegang atau cemas."
+        case .joy:
+            return "Karakter suaramu terdengar hidup dan berenergi, dengan kecenderungan suasana positif atau ceria."
+        case .surprise:
+            return "Karakter suaramu memiliki beberapa lonjakan energi yang mendadak, sehingga terasa spontan atau terkejut."
+        case .disgust:
+            return "Karakter suaramu menunjukkan pola yang cukup berat dan tidak nyaman, dengan kecenderungan negatif."
+        case .anticipation:
+            return "Karakter suaramu menunjukkan energi yang meningkat, seolah ada dorongan atau antisipasi terhadap sesuatu."
+        }
+    }
 }
 
 enum ListeningState: Equatable {

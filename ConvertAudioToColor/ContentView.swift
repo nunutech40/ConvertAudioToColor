@@ -62,10 +62,18 @@ struct ContentView: View {
                         .tracking(1.5)
                     Text(summary.description)
                     Text("duration \(summary.duration, specifier: "%.1fs") · avg arousal \(summary.averageArousal, specifier: "%.2f")")
+                    Text(summary.emotionalConclusion)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Ini interpretasi karakter akustik suara, bukan diagnosis emosi.")
+                        .font(.caption2)
                 }
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
                 .padding(.top, 8)
             }
         }
