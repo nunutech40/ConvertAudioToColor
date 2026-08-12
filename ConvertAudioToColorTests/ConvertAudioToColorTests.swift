@@ -1,38 +1,38 @@
-//
-//  ConvertAudioToColorTests.swift
-//  ConvertAudioToColorTests
-//
-//  Created by Nunu Nugraha on 12/08/26.
-//
-
 import XCTest
 @testable import ConvertAudioToColor
 
 final class ConvertAudioToColorTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+    func testNormalizationAndClamping() {
+        XCTAssertEqual(FeatureMath.normalized(5, min: 0, max: 10), 0.5)
+        XCTAssertEqual(FeatureMath.normalized(-2, min: 0, max: 10), 0)
+        XCTAssertEqual(FeatureMath.normalized(20, min: 0, max: 10), 1)
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    func testSmoothingMovesTowardCurrentValue() {
+        let result = FeatureMath.smooth(previous: 0, current: 1, factor: 0.2)
+        XCTAssertEqual(result, 0.2, accuracy: 0.001)
     }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
-        // XCTest Documentation
-        // https://developer.apple.com/documentation/xctest
+    func testHighEnergyNegativeFeaturesMapToAngerOrFear() {
+        let features = AudioFeatures(energy: 0.95, spectralSharpness: 0.7, spectralFlux: 0.25,
+                                     pitchVariation: 0.1, pauseRatio: 0, speechRhythm: 0.8, isSilent: false)
+        let affect = AffectMapper().map(features)
+        XCTAssertTrue([.anger, .fear].contains(affect.family))
+        XCTAssertGreaterThan(affect.arousal, 0.7)
     }
 
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    func testQuietNegativeFeaturesMapToSadness() {
+        let features = AudioFeatures(energy: 0.08, spectralSharpness: 0.2, spectralFlux: 0.05,
+                                     pitchVariation: 0.05, pauseRatio: 0.8, speechRhythm: 0.1, isSilent: false)
+        XCTAssertEqual(AffectMapper().map(features).family, .sadness)
     }
 
+    func testVisualizationIntensityIsBounded() {
+        let affect = AffectState(valence: -1, arousal: 1, family: .anger, intensity: 1)
+        let visual = VoiceVisualizerViewModel.visualization(for: affect, features: AudioFeatures())
+        XCTAssertEqual(visual.hue, 0.01)
+        XCTAssertGreaterThanOrEqual(visual.saturation, 0)
+        XCTAssertLessThanOrEqual(visual.saturation, 1)
+        XCTAssertGreaterThan(visual.glowRadius, 20)
+    }
 }
