@@ -61,31 +61,42 @@ struct ContentView: View {
                     Text("SESSION SUMMARY")
                         .font(.caption.weight(.bold))
                         .tracking(1.5)
+                        .foregroundStyle(.secondary)
                     Text(summary.description)
-                    Text("duration \(summary.duration, specifier: "%.1fs") · avg arousal \(summary.averageArousal, specifier: "%.2f")")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.9))
+                    Text("durasi \(summary.duration, specifier: "%.1fs") · rata-rata arousal \(summary.averageArousal, specifier: "%.2f")")
+                        .font(.caption.monospaced())
                     if model.aiResult.isEmpty {
-                        Text(model.isAnalyzing ? "AI sedang membaca data emosimu dan menyiapkan roasting..." : summary.emotionalConclusion)
+                        Text(model.isAnalyzing
+                             ? "AI sedang membaca pola suara dan konteks ucapanmu..."
+                             : "Sesi selesai. Analisis AI akan muncul setelah data suara dan ucapan selesai diproses.")
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
+                        Text("AI READING")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.5)
+                            .foregroundStyle(.secondary)
                         ScrollView {
                             Text(model.aiResult)
                                 .font(.subheadline)
                                 .foregroundStyle(.white.opacity(0.9))
+                                .lineSpacing(4)
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxHeight: 240)
+                        .frame(maxHeight: 260)
                     }
                     Text("Ini interpretasi karakter akustik suara, bukan diagnosis emosi.")
                         .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+                .padding(16)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 16))
                 .padding(.top, 8)
             }
         }

@@ -38,6 +38,7 @@ final class AIAnalysisService {
         Jangan membuat diagnosis psikologis dan jangan menyatakan dugaan sebagai fakta.
         Gunakan bahasa kemungkinan: "kelihatannya", "mungkin", atau "terdengar seperti".
         Jangan membuat analisis akademis atau penjelasan panjang.
+        Jangan gunakan Markdown, bold, heading dengan tanda bintang, atau format bullet yang rumit. Tulis plain text yang enak dibaca di aplikasi.
 
         Urutan berpikir internal:
         1. Validasi kualitas data: durasi, jumlah sampel, energi, peak, arousal, valence, dan mood dominan.

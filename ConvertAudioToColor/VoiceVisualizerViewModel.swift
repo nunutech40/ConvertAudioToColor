@@ -150,12 +150,21 @@ final class VoiceVisualizerViewModel: ObservableObject {
         aiResult = ""
         Task {
             do {
-                aiResult = try await aiService.analyze(transcript: transcript, summary: summary)
+                let result = try await aiService.analyze(transcript: transcript, summary: summary)
+                aiResult = cleanAIResult(result)
             } catch {
                 aiResult = "AI belum bisa menganalisis sesi ini: \(error.localizedDescription)"
             }
             isAnalyzing = false
         }
+    }
+
+    private func cleanAIResult(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "__", with: "")
+            .replacingOccurrences(of: "###", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func finishSessionSummary() {
