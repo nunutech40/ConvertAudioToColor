@@ -5,20 +5,16 @@ struct ContentView: View {
     @StateObject private var model = VoiceVisualizerViewModel()
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VisualizerCanvas(state: model.visual)
-
-            VStack {
+        ScrollView {
+            VStack(spacing: 22) {
                 header
-                Spacer()
                 LiveAudioChart(points: model.chartPoints, color: currentColor)
-                    .frame(height: 110)
-                    .padding(.bottom, 18)
+                    .frame(height: 220)
                 controls
             }
             .padding(24)
         }
+        .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
     }
 
@@ -117,23 +113,31 @@ struct LiveAudioChart: View {
     let color: Color
 
     var body: some View {
-        Chart(points) { point in
-            AreaMark(x: .value("Time", point.id), y: .value("Level", point.level))
-                .foregroundStyle(LinearGradient(colors: [color.opacity(0.55), color.opacity(0.04)],
-                                                 startPoint: .top, endPoint: .bottom))
+        Group {
+            if points.isEmpty {
+                ContentUnavailableView("No audio yet", systemImage: "waveform")
+            } else {
+                Chart(points) { point in
+                    AreaMark(x: .value("Time", point.id), y: .value("Level", point.level))
+                        .foregroundStyle(LinearGradient(colors: [color.opacity(0.60), color.opacity(0.04)],
+                                                         startPoint: .top, endPoint: .bottom))
 
-            LineMark(x: .value("Time", point.id), y: .value("Level", point.level))
-                .foregroundStyle(color)
-                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    LineMark(x: .value("Time", point.id), y: .value("Level", point.level))
+                        .foregroundStyle(color)
+                        .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
 
-            LineMark(x: .value("Time", point.id), y: .value("Frequency", point.frequency))
-                .foregroundStyle(color.opacity(0.45))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    LineMark(x: .value("Time", point.id), y: .value("Frequency", point.frequency))
+                        .foregroundStyle(color.opacity(0.45))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+                .chartXScale(domain: xDomain)
+                .chartYScale(domain: 0...1)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .chartLegend(.hidden)
+            }
         }
-        .chartYScale(domain: 0...1)
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartLegend(.hidden)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
         .overlay(alignment: .topLeading) {
             Text("LIVE AUDIO")
                 .font(.caption2.weight(.bold).monospaced())
@@ -141,6 +145,11 @@ struct LiveAudioChart: View {
         }
         .padding(.horizontal, 8)
         .animation(.linear(duration: 0.08), value: points)
+    }
+
+    private var xDomain: ClosedRange<Int> {
+        guard let first = points.first?.id, let last = points.last?.id else { return 0...1 }
+        return first == last ? first...(last + 1) : first...last
     }
 }
 
