@@ -25,8 +25,16 @@ final class AIAnalysisService {
         let apiKey = LocalSecrets.nineRouterAPIKey
 
         let prompt = """
-        Analisis sesi suara berikut dan buat roasting yang lucu, ringan, dan tidak kejam.
-        Gunakan data emosi dan isi ucapan. Jangan membuat diagnosis psikologis dan jangan mengarang fakta.
+        Analisis sesi suara berikut dengan gaya manusia yang santai, natural, dan lucu.
+        Fokus pada kondisi atau situasi yang mungkin sedang dialami orang ini, bukan membedah semua kalimatnya satu per satu.
+        Gunakan gabungan karakter suara, perubahan mood, energi, dan konteks umum transcript.
+
+        Jangan mengutip transcript secara verbatim.
+        Jangan mengulang, menyebut, atau membocorkan kata kasar, hinaan, umpatan, atau istilah sensitif yang ada di transcript.
+        Jika ada kata kasar, cukup sebut "bahasa yang cukup kasar" atau "ucapan yang emosional".
+        Jangan membuat diagnosis psikologis dan jangan menyatakan dugaan sebagai fakta.
+        Gunakan bahasa kemungkinan: "kelihatannya", "mungkin", atau "terdengar seperti".
+        Jangan membuat analisis akademis atau penjelasan panjang.
 
         Mood dominan: \(summary.dominantFamily.rawValue)
         Mood sekunder: \(summary.secondaryFamilies.map(\.rawValue).joined(separator: ", "))
@@ -38,13 +46,15 @@ final class AIAnalysisService {
         Transcript: \(transcript.isEmpty ? "(tidak tersedia)" : transcript)
 
         Format jawaban:
-        Kesimpulan emosi:
-        Analisis isi ucapan:
+        Kondisinya:
+        Tulis 2-4 kalimat tentang kemungkinan kondisi/situasi orang ini berdasarkan data suara dan konteks umum ucapannya.
+
         Roasting:
+        Tulis 1-3 kalimat roasting yang terasa seperti teman dekat sedang nyeletuk. Harus ringan, relevan dengan energi dan mood sesi, tanpa mengulang kata kasar atau isi transcript secara detail.
         """
 
         let body = ChatRequest(model: NineRouterConfiguration.model, messages: [
-            .init(role: "system", content: "Kamu adalah analis suara yang jenaka. Roasting harus playful, tidak menghina identitas, kesehatan, atau hal sensitif."),
+            .init(role: "system", content: "Kamu adalah teman yang peka, jenaka, dan bisa membaca suasana. Jawabanmu harus natural seperti obrolan manusia. Roasting harus playful, tidak menghina identitas, kesehatan, kondisi mental, atau hal sensitif. Jangan pernah mengulang kata kasar dari transcript."),
             .init(role: "user", content: prompt)
         ])
 
