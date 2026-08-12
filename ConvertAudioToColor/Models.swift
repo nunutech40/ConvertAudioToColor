@@ -40,6 +40,12 @@ struct VisualizationState: Sendable, Equatable {
     var motionIntensity = 0.15
 }
 
+struct AudioChartPoint: Identifiable, Sendable, Equatable {
+    let id: Int
+    let level: Double
+    let frequency: Double
+}
+
 struct SessionSummary: Sendable, Equatable {
     var duration: TimeInterval = 0
     var averageEnergy: Float = 0

@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 struct ContentView: View {
@@ -11,6 +12,9 @@ struct ContentView: View {
             VStack {
                 header
                 Spacer()
+                LiveAudioChart(points: model.chartPoints, color: currentColor)
+                    .frame(height: 110)
+                    .padding(.bottom, 18)
                 controls
             }
             .padding(24)
@@ -91,6 +95,44 @@ struct ContentView: View {
         if model.state == .listening { return "Stop" }
         if model.state == .playing { return "Stop replay" }
         return "Start"
+    }
+
+    private var currentColor: Color {
+        Color(hue: model.visual.hue,
+              saturation: model.visual.saturation,
+              brightness: model.visual.brightness)
+    }
+}
+
+struct LiveAudioChart: View {
+    let points: [AudioChartPoint]
+    let color: Color
+
+    var body: some View {
+        Chart(points) { point in
+            AreaMark(x: .value("Time", point.id), y: .value("Level", point.level))
+                .foregroundStyle(LinearGradient(colors: [color.opacity(0.55), color.opacity(0.04)],
+                                                 startPoint: .top, endPoint: .bottom))
+
+            LineMark(x: .value("Time", point.id), y: .value("Level", point.level))
+                .foregroundStyle(color)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+            LineMark(x: .value("Time", point.id), y: .value("Frequency", point.frequency))
+                .foregroundStyle(color.opacity(0.45))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+        }
+        .chartYScale(domain: 0...1)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(.hidden)
+        .overlay(alignment: .topLeading) {
+            Text("LIVE AUDIO")
+                .font(.caption2.weight(.bold).monospaced())
+                .foregroundStyle(color.opacity(0.8))
+        }
+        .padding(.horizontal, 8)
+        .animation(.linear(duration: 0.08), value: points)
     }
 }
 

@@ -9,6 +9,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
     @Published var visual = VisualizationState()
     @Published var hasReplay = false
     @Published var summary: SessionSummary?
+    @Published var chartPoints = [AudioChartPoint]()
 
     let capture = AudioCaptureService()
     private let replayService = AudioReplayService()
@@ -17,6 +18,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
     private var sessionStartedAt: Date?
     private var sessionSamples = [AffectState]()
     private var sessionEnergies = [Float]()
+    private var chartSequence = 0
 
     init() {
         capture.onFeatures = { [weak self] features in
@@ -98,6 +100,17 @@ final class VoiceVisualizerViewModel: ObservableObject {
         visual = Self.makeVisualization(for: affect, features: smoothed)
         sessionSamples.append(affect)
         sessionEnergies.append(smoothed.energy)
+        appendChartPoint(for: smoothed)
+    }
+
+    private func appendChartPoint(for features: AudioFeatures) {
+        chartPoints.append(AudioChartPoint(id: chartSequence,
+                                           level: Double(features.energy),
+                                           frequency: Double(features.spectralSharpness)))
+        chartSequence += 1
+        if chartPoints.count > 72 {
+            chartPoints.removeFirst(chartPoints.count - 72)
+        }
     }
 
     private func resetSessionSummary() {
@@ -106,6 +119,8 @@ final class VoiceVisualizerViewModel: ObservableObject {
         sessionSamples.removeAll(keepingCapacity: true)
         sessionEnergies.removeAll(keepingCapacity: true)
         lastFeatures = AudioFeatures()
+        chartPoints.removeAll(keepingCapacity: true)
+        chartSequence = 0
     }
 
     private func finishSessionSummary() {
