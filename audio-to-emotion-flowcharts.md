@@ -7,14 +7,14 @@ Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengub
 ```mermaid
 flowchart TD
     A[Input suara dari microphone] --> B[Audio mentah sementara]
-    B --> C[Ekstraksi karakter suara]
+    B --> C[Ekstraksi karakter suara - AudioAnalyzer]
 
-    C --> D[Energy atau volume]
-    C --> E[Sharpness atau kecerahan spektrum]
-    C --> F[Tension atau perubahan mendadak]
-    C --> G[Pitch variation]
-    C --> H[Jeda dan silence]
-    C --> I[Tempo atau ritme bicara]
+    C --> D[Energy atau volume - RMS calculation]
+    C --> E[Sharpness atau kecerahan spektrum - FFT dan spectral centroid]
+    C --> F[Tension atau perubahan mendadak - spectral flux]
+    C --> G[Pitch variation - autocorrelation atau YIN]
+    C --> H[Jeda dan silence - RMS threshold]
+    C --> I[Tempo atau ritme bicara - energy envelope dan onset detection]
 
     D --> J[Normalisasi dan smoothing]
     E --> J
@@ -23,8 +23,8 @@ flowchart TD
     H --> J
     I --> J
 
-    J --> K[Hitung arousal]
-    J --> L[Hitung valence]
+    J --> K[Hitung arousal - EmotionMapper]
+    J --> L[Hitung valence - EmotionMapper]
 
     K --> M[Interpretasi mood suara]
     L --> M
