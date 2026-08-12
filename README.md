@@ -58,6 +58,8 @@ Aplikasi juga menampilkan ringkasan yang lebih mudah dipahami, misalnya:
 - Emotion timeline setelah sesi selesai.
 - Session summary berupa energi rata-rata, peak, valence, arousal, mood dominan, dan mood sekunder.
 - Replay sesi secara lokal.
+- Speech Recognition untuk membuat transcript sementara.
+- Analisis AI dan roasting opsional setelah sesi selesai.
 - Penyimpanan audio sementara di RAM dengan batas buffer.
 - Adaptive noise floor untuk membantu membaca suara lemah dan kebisingan ruangan.
 - Signal-to-noise estimation.
@@ -74,6 +76,8 @@ Aplikasi juga menampilkan ringkasan yang lebih mudah dipahami, misalnya:
 - Accelerate/vDSP — windowing, FFT, magnitude, spectral sharpness, dan spectral flux.
 - AVAudioPlayerNode — replay audio dari buffer RAM.
 - Swift concurrency dan MainActor — pengiriman state ke UI.
+- Speech — transcript suara sementara.
+- URLSession — request ke endpoint OpenAI-compatible 9Router.
 
 ## Algoritma utama
 
@@ -116,6 +120,28 @@ Kemudian `AffectMapper` memilih emotion family seperti `Trust`, `Sadness`, `Ange
 
 `AffectMapper` adalah ruleset produk yang dibuat dan diuji di dalam aplikasi. Ini bukan API bawaan iOS dan bukan model machine learning universal.
 
+## AI analysis dan roasting
+
+Setelah sesi dihentikan, pengguna dapat menekan `Analyze & Roast`. Aplikasi mengirim data ringkas berikut ke 9Router:
+
+- transcript sementara;
+- mood dominan dan mood sekunder;
+- energi rata-rata dan peak;
+- valence dan arousal;
+- durasi sesi.
+
+Konfigurasi default:
+
+```text
+Base URL: https://9router.103-59-94-121.nip.io/v1
+Model: codexCombo
+Endpoint: /chat/completions
+```
+
+API key tidak disimpan di source code. Key dimasukkan melalui field lokal pada aplikasi dan disimpan di `UserDefaults` perangkat untuk prototype. Untuk production, pindahkan request ini ke backend agar key tidak dapat diekstrak dari aplikasi iPhone.
+
+Roasting dibuat playful dan tidak boleh menjadi diagnosis psikologis atau mengarang isi ucapan.
+
 ## Privasi
 
 Audio diproses secara lokal di perangkat.
@@ -125,6 +151,7 @@ Audio diproses secara lokal di perangkat.
 - Tombol Discard menghapus buffer sesi.
 - Tidak ada file audio yang dibuat.
 - Tidak ada upload atau transmisi audio mentah.
+- Transcript dan ringkasan hanya dikirim ke AI setelah pengguna menekan `Analyze & Roast`.
 - Permission microphone diminta setelah pengguna menekan Start.
 
 ## Struktur kode

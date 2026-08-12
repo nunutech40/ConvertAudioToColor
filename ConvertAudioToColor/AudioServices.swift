@@ -1,4 +1,44 @@
 import AVFoundation
+import Speech
+
+final class SpeechTranscriptService {
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "id-ID"))
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
+
+    var onText: ((String) -> Void)?
+
+    func requestPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status == .authorized)
+            }
+        }
+    }
+
+    func start() {
+        guard let recognizer, recognizer.isAvailable else { return }
+        stop()
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        self.request = request
+        task = recognizer.recognitionTask(with: request) { [weak self] result, _ in
+            guard let result else { return }
+            self?.onText?(result.bestTranscription.formattedString)
+        }
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        request?.append(buffer)
+    }
+
+    func stop() {
+        request?.endAudio()
+        task?.cancel()
+        request = nil
+        task = nil
+    }
+}
 
 final class InMemoryAudioSession {
     private(set) var buffers: [AVAudioPCMBuffer] = []
@@ -18,10 +58,16 @@ final class AudioCaptureService {
     let session = InMemoryAudioSession()
 
     private let analyzer = AudioAnalyzer()
+    let transcript = SpeechTranscriptService()
     private let queue = DispatchQueue(label: "audio.capture.analysis", qos: .userInitiated)
     private var tapInstalled = false
 
     var onFeatures: ((AudioFeatures) -> Void)?
+    var onTranscript: ((String) -> Void)?
+
+    init() {
+        transcript.onText = { [weak self] text in self?.onTranscript?(text) }
+    }
 
     func requestPermission() async -> Bool {
         await withCheckedContinuation { continuation in
@@ -53,6 +99,7 @@ final class AudioCaptureService {
             guard let self else { return }
             self.queue.async {
                 self.session.append(buffer)
+                self.transcript.append(buffer)
                 let features = self.analyzer.analyze(buffer)
                 DispatchQueue.main.async { self.onFeatures?(features) }
             }
@@ -64,6 +111,7 @@ final class AudioCaptureService {
     }
 
     func stop() {
+        transcript.stop()
         if tapInstalled {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false

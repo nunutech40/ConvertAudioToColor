@@ -64,53 +64,57 @@ flowchart TD
 flowchart LR
     A[User gesture] --> B[ContentView SwiftUI]
     B --> C[VoiceVisualizerViewModel MainActor]
+    C --> D[SpeechTranscriptService - Speech framework]
+    D --> C
+    C --> E[AIAnalysisService - 9Router codexCombo]
+    E --> C
 
-    C --> D[AudioCaptureService]
-    D --> E[AVAudioSession]
-    E --> F[iOS Audio Subsystem]
-    F --> G[Microphone Hardware]
+    C --> F[AudioCaptureService]
+    F --> G[AVAudioSession]
+    G --> H[iOS Audio Subsystem]
+    H --> I[Microphone Hardware]
 
-    D --> H[AVAudioEngine]
-    H --> I[Input Node Audio Tap]
-    I --> J[AVAudioPCMBuffer]
+    F --> J[AVAudioEngine]
+    J --> K[Input Node Audio Tap]
+    K --> L[AVAudioPCMBuffer]
 
-    J --> K[InMemoryAudioSession - bounded RAM]
-    K --> L[AudioReplayService]
-    L --> M[AVAudioPlayerNode]
-    M --> N[iPhone Speaker]
+    L --> M[InMemoryAudioSession - bounded RAM]
+    M --> N[AudioReplayService]
+    N --> O[AVAudioPlayerNode]
+    O --> P[iPhone Speaker]
 
-    J --> O[AudioAnalyzer]
-    O --> P[RMS / Energy]
-    O --> Q[vDSP FFT]
-    O --> R[Spectral Features]
-    O --> S[Pitch / Variation]
-    O --> T[Pause / Silence Detection]
-    O --> U[Noise Floor / Signal-to-Noise]
+    L --> Q[AudioAnalyzer]
+    Q --> R[RMS / Energy]
+    Q --> S[vDSP FFT]
+    Q --> T[Spectral Features]
+    Q --> U[Pitch / Variation proxy]
+    Q --> V[Pause / Silence Detection]
+    Q --> W[Noise Floor / Signal-to-Noise]
 
-    P --> V[AudioFeatures]
-    Q --> V
-    R --> V
-    S --> V
-    T --> V
-    U --> V
+    R --> X[AudioFeatures]
+    S --> X
+    T --> X
+    U --> X
+    V --> X
+    W --> X
 
-    V --> W[AudioMath + ViewModel - normalize/clamp/smooth]
-    W --> X[AffectMapper - deterministic product logic]
-    X --> Y[Arousal]
-    X --> Z[Valence]
-    X --> AA[Mood Family and Intensity]
+    X --> Y[AudioMath + ViewModel - normalize/clamp/smooth]
+    Y --> Z[AffectMapper - deterministic product logic]
+    Z --> AA[Arousal]
+    Z --> AB[Valence]
+    Z --> AC[Mood Family and Intensity]
 
-    Y --> AB[Visualization mapping in ViewModel]
-    Z --> AB
-    AA --> AB
-    V --> AB
+    AA --> AD[Visualization mapping in ViewModel]
+    AB --> AD
+    AC --> AD
+    X --> AD
 
-    AB --> AC[VisualizationState / Chart Color]
-    AC --> C
-    C --> AD[SwiftUI Swift Charts]
-    AD --> AE[Live Audio Chart]
-    AD --> AF[Emotion Timeline Chart]
-    C --> AG[Session Summary]
+    AD --> AE[VisualizationState / Chart Color]
+    AE --> C
+    C --> AF[SwiftUI Swift Charts]
+    AF --> AG[Live Audio Chart]
+    AF --> AH[Emotion Timeline Chart]
+    C --> AI[Session Summary]
 
     C --> AH[ListeningState and PlaybackState]
     AH --> B
@@ -125,6 +129,8 @@ flowchart LR
 | `AudioCaptureService` | Permission, konfigurasi audio, start/stop engine | `AVAudioPCMBuffer` ke session store dan analyzer |
 | `InMemoryAudioSession` | Menahan PCM chunks sementara dengan batas durasi/memori | Buffer ke replay service; dapat di-clear |
 | `AudioReplayService` | Menjadwalkan buffer RAM untuk playback lokal | `AVAudioPlayerNode` dan speaker |
+| `SpeechTranscriptService` | Mengubah ucapan menjadi transcript sementara | `VoiceVisualizerViewModel` |
+| `AIAnalysisService` | Mengirim transcript dan ringkasan fitur ke 9Router setelah persetujuan eksplisit | Hasil analisis dan roasting |
 | `AVAudioSession` | Permission dan akses audio input/output | Status audio ke service |
 | `AVAudioEngine` | Menangkap audio real-time | Buffer audio melalui input tap |
 | `AVAudioPCMBuffer` | Sampel PCM sementara di RAM | Session store dan analyzer |

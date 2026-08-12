@@ -11,10 +11,14 @@ final class VoiceVisualizerViewModel: ObservableObject {
     @Published var summary: SessionSummary?
     @Published var chartPoints = [AudioChartPoint]()
     @Published var emotionTimeline = [EmotionTimelinePoint]()
+    @Published var transcript = ""
+    @Published var aiResult = ""
+    @Published var isAnalyzing = false
 
     let capture = AudioCaptureService()
     private let replayService = AudioReplayService()
     private let mapper = AffectMapper()
+    private let aiService = AIAnalysisService()
     private var lastFeatures = AudioFeatures()
     private var sessionStartedAt: Date?
     private var sessionSamples = [AffectState]()
@@ -24,6 +28,9 @@ final class VoiceVisualizerViewModel: ObservableObject {
     init() {
         capture.onFeatures = { [weak self] features in
             self?.receive(features)
+        }
+        capture.onTranscript = { [weak self] text in
+            Task { @MainActor in self?.transcript = text }
         }
     }
 
@@ -36,6 +43,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
                 state = .permissionDenied
                 return
             }
+            _ = await capture.transcript.requestPermission()
             do {
                 self.resetSessionSummary()
                 try capture.start()
@@ -119,6 +127,8 @@ final class VoiceVisualizerViewModel: ObservableObject {
 
     private func resetSessionSummary() {
         summary = nil
+        transcript = ""
+        aiResult = ""
         sessionStartedAt = Date()
         sessionSamples.removeAll(keepingCapacity: true)
         sessionEnergies.removeAll(keepingCapacity: true)
@@ -126,6 +136,20 @@ final class VoiceVisualizerViewModel: ObservableObject {
         chartPoints.removeAll(keepingCapacity: true)
         emotionTimeline.removeAll(keepingCapacity: true)
         chartSequence = 0
+    }
+
+    func analyzeAndRoast() {
+        guard let summary, !isAnalyzing else { return }
+        isAnalyzing = true
+        aiResult = ""
+        Task {
+            do {
+                aiResult = try await aiService.analyze(transcript: transcript, summary: summary)
+            } catch {
+                aiResult = "AI belum bisa menganalisis sesi ini: \(error.localizedDescription)"
+            }
+            isAnalyzing = false
+        }
     }
 
     private func finishSessionSummary() {

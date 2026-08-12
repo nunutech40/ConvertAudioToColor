@@ -10,6 +10,8 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Start/stop microphone capture and analyze audio in real time.
 - Retain a bounded in-memory session buffer for local replay; do not create a recording file.
 - Replay the current temporary session on explicit user action.
+- Request Speech Recognition permission and create a temporary transcript for optional AI analysis.
+- Send transcript plus compact session features to an OpenAI-compatible 9Router endpoint only after explicit Analyze & Roast action.
 - Extract energy, spectral sharpness, tension, pitch variation, pauses, and speech rhythm.
 - Improve weak-signal visibility with supported hardware input gain, adaptive noise-floor tracking, and signal-to-noise estimation.
 - Expose ambient noise as a separate acoustic feature; do not treat all noise as user emotion.
@@ -51,6 +53,8 @@ Temporary PCM buffers
 - `AVAudioSession` input gain: use the maximum gain only when the current audio route supports setting it.
 - In-memory PCM session store: bounded temporary replay buffer; no file persistence.
 - `AVAudioPlayerNode`: replay scheduled `AVAudioPCMBuffer` chunks locally.
+- `Speech`: temporary on-device/Apple speech recognition transcript, depending on the active iOS speech-recognition route.
+- `URLSession`: optional request to the configured 9Router OpenAI-compatible endpoint.
 - SwiftUI layout and styling: screen composition and controls.
 - Swift Charts: rolling live audio chart and post-session emotion timeline.
 - Swift concurrency/MainActor: ownership and state delivery.
@@ -67,6 +71,8 @@ ContentView
       -> ChartState (live rolling points + completed emotion timeline)
       -> Visualization mapping in VoiceVisualizerViewModel
       -> AudioReplayService (AVAudioEngine/AVAudioPlayerNode)
+      -> SpeechTranscriptService (Speech framework)
+      -> AIAnalysisService (9Router)
       -> VisualizationState
 ```
 
@@ -79,6 +85,8 @@ Responsibilities:
 - Visualization mapping: currently a small static mapping function in `VoiceVisualizerViewModel`; it can become a separate object later if the rules grow.
 - `ChartState`: expose recent live points while listening and complete mood-colored points after Stop.
 - `AudioReplayService`: schedule temporary PCM buffers to `AVAudioPlayerNode`; never export or write them to disk.
+- `SpeechTranscriptService`: turn session speech into a temporary transcript; clear it with the session.
+- `AIAnalysisService`: send compact features and transcript only after explicit user action; never send PCM buffers.
 - `VoiceVisualizerViewModel`: own user-visible state, coordinate services, handle errors/lifecycle, and publish on MainActor.
 - `ContentView`: render state and send intents; no AVAudioEngine or DSP inside `body`.
 
@@ -310,7 +318,14 @@ Add to `Info.plist`:
 <string>Microphone access is used to turn your voice into live colors and let you replay this session.</string>
 ```
 
+```xml
+<key>NSSpeechRecognitionUsageDescription</key>
+<string>Speech recognition is used to create a temporary transcript for session analysis.</string>
+```
+
 Ask on Start, explain local processing and temporary in-memory replay. Never log raw audio, create a recording file, or upload anything. Clear the session buffer when the user discards it, when the session expires, and according to the background policy. Denied/restricted permission gets a clear Settings recovery path.
+
+AI analysis is optional. It uses the configured 9Router OpenAI-compatible endpoint with model `codexCombo` only after the user presses `Analyze & Roast`. API keys must stay in local secure configuration and must not be committed to the repository.
 
 ## Failure handling
 
@@ -319,6 +334,8 @@ Ask on Start, explain local processing and temporary in-memory replay. Never log
 - Buffer processing issue: drop the frame and continue; never crash.
 - Replay buffer limit reached: show a clear limit state and apply the configured retention policy; never grow memory without bound.
 - Replay format/session error: stop playback safely and keep live visualization available.
+- Speech recognition unavailable/denied: continue audio visualization without transcript.
+- AI request failure: keep the local summary and timeline available; show a recoverable network/configuration error.
 - Loud input: clamp visual values.
 - Repeated Start/Stop: never install duplicate taps.
 
