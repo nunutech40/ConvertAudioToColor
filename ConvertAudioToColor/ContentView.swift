@@ -50,6 +50,20 @@ struct ContentView: View {
             }
             .font(.caption.monospaced())
             .foregroundStyle(.secondary)
+
+            if let summary = model.summary {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("SESSION SUMMARY")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.5)
+                    Text(summary.description)
+                    Text("duration \(summary.duration, specifier: "%.1fs") · avg arousal \(summary.averageArousal, specifier: "%.2f")")
+                }
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
+            }
         }
     }
 

@@ -40,6 +40,20 @@ struct VisualizationState: Sendable, Equatable {
     var motionIntensity = 0.15
 }
 
+struct SessionSummary: Sendable, Equatable {
+    var duration: TimeInterval = 0
+    var averageEnergy: Float = 0
+    var peakEnergy: Float = 0
+    var averageValence: Float = 0
+    var averageArousal: Float = 0
+    var dominantFamily: EmotionFamily = .trust
+    var sampleCount: Int = 0
+
+    var description: String {
+        String(format: "%@ · avg energy %.2f · peak %.2f", dominantFamily.rawValue, averageEnergy, peakEnergy)
+    }
+}
+
 enum ListeningState: Equatable {
     case ready, requestingPermission, listening, paused, playing
     case permissionDenied, unavailable(String), failed(String)

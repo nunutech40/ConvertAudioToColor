@@ -8,11 +8,15 @@ final class VoiceVisualizerViewModel: ObservableObject {
     @Published var affect = AffectState()
     @Published var visual = VisualizationState()
     @Published var hasReplay = false
+    @Published var summary: SessionSummary?
 
     let capture = AudioCaptureService()
     private let replayService = AudioReplayService()
     private let mapper = AffectMapper()
     private var lastFeatures = AudioFeatures()
+    private var sessionStartedAt: Date?
+    private var sessionSamples = [AffectState]()
+    private var sessionEnergies = [Float]()
 
     init() {
         capture.onFeatures = { [weak self] features in
@@ -30,6 +34,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
                 return
             }
             do {
+                self.resetSessionSummary()
                 try capture.start()
                 state = .listening
             } catch {
@@ -41,6 +46,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
     func stop() {
         capture.stop()
         replayService.stop()
+        finishSessionSummary()
         hasReplay = !capture.session.isEmpty
         state = .ready
     }
@@ -90,10 +96,36 @@ final class VoiceVisualizerViewModel: ObservableObject {
         features = smoothed
         affect = mapper.map(smoothed)
         visual = Self.makeVisualization(for: affect, features: smoothed)
+        sessionSamples.append(affect)
+        sessionEnergies.append(smoothed.energy)
+    }
+
+    private func resetSessionSummary() {
+        summary = nil
+        sessionStartedAt = Date()
+        sessionSamples.removeAll(keepingCapacity: true)
+        sessionEnergies.removeAll(keepingCapacity: true)
+        lastFeatures = AudioFeatures()
+    }
+
+    private func finishSessionSummary() {
+        guard !sessionSamples.isEmpty else { return }
+        let duration = sessionStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        let averageEnergy = sessionEnergies.reduce(0, +) / Float(sessionEnergies.count)
+        let peakEnergy = sessionEnergies.max() ?? 0
+        let averageValence = sessionSamples.map(\.valence).reduce(0, +) / Float(sessionSamples.count)
+        let averageArousal = sessionSamples.map(\.arousal).reduce(0, +) / Float(sessionSamples.count)
+        let counts = Dictionary(grouping: sessionSamples, by: \.family).mapValues(\.count)
+        let dominantFamily = counts.max { $0.value < $1.value }?.key ?? .trust
+
+        summary = SessionSummary(duration: duration, averageEnergy: averageEnergy,
+                                 peakEnergy: peakEnergy, averageValence: averageValence,
+                                 averageArousal: averageArousal, dominantFamily: dominantFamily,
+                                 sampleCount: sessionSamples.count)
     }
 
     nonisolated static func makeVisualization(for affect: AffectState, features: AudioFeatures) -> VisualizationState {
-        let hue: Double = switch affect.family {
+        let baseHue: Double = switch affect.family {
         case .sadness: 0.62
         case .anger: 0.01
         case .fear: 0.72
@@ -103,6 +135,10 @@ final class VoiceVisualizerViewModel: ObservableObject {
         case .disgust: 0.25
         case .anticipation: 0.06
         }
+        // Keep the emotion family palette, but continuously shift within it.
+        // This makes frame-by-frame changes visible instead of locking one color per mood.
+        let hue = normalizedHue(baseHue + Double(affect.valence) * 0.07
+                                + Double(features.spectralSharpness - 0.5) * 0.10)
 
         return VisualizationState(
             hue: hue,
@@ -113,5 +149,10 @@ final class VoiceVisualizerViewModel: ObservableObject {
             pulseAmount: Double(features.spectralFlux),
             motionIntensity: Double(0.1 + affect.arousal * 0.9)
         )
+    }
+
+    private nonisolated static func normalizedHue(_ value: Double) -> Double {
+        let remainder = value.truncatingRemainder(dividingBy: 1)
+        return remainder >= 0 ? remainder : remainder + 1
     }
 }
