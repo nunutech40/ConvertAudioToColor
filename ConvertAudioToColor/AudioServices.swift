@@ -35,7 +35,15 @@ final class AudioCaptureService {
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.playAndRecord, mode: .measurement,
                                      options: [.defaultToSpeaker, .allowBluetooth])
+        try audioSession.setPreferredSampleRate(48_000)
+        try audioSession.setPreferredIOBufferDuration(0.01)
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+
+        // Hardware input gain is not available on every iPhone or route.
+        // When supported, use the maximum hardware gain before software analysis.
+        if audioSession.isInputGainSettable {
+            try? audioSession.setInputGain(1.0)
+        }
 
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)

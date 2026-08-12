@@ -42,6 +42,7 @@ struct ContentView: View {
             HStack {
                 Text("valence \(model.affect.valence, specifier: "%.2f")")
                 Text("arousal \(model.affect.arousal, specifier: "%.2f")")
+                Text("noise \(model.features.noiseLevel, specifier: "%.2f")")
                 Spacer()
                 if model.hasReplay {
                     Text("Replay available").foregroundStyle(.secondary)

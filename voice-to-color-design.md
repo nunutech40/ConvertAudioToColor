@@ -11,6 +11,8 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Retain a bounded in-memory session buffer for local replay; do not create a recording file.
 - Replay the current temporary session on explicit user action.
 - Extract energy, spectral sharpness, tension, pitch variation, pauses, and speech rhythm.
+- Improve weak-signal visibility with supported hardware input gain, adaptive noise-floor tracking, and signal-to-noise estimation.
+- Expose ambient noise as a separate acoustic feature; do not treat all noise as user emotion.
 - Map features to continuous valence/arousal coordinates, then to a mood family and intensity.
 - Map mood coordinates to hue, saturation, brightness, shape, motion, and glow.
 - Show live mood visualization and states: Ready, Listening, Paused, Permission Denied, Unavailable/Failed, Playing.
@@ -43,6 +45,7 @@ Temporary PCM buffers
 - `AVAudioEngine`: real-time microphone input and audio tap.
 - `AVAudioPCMBuffer`: temporary PCM samples in RAM.
 - `Accelerate/vDSP`: windowing, FFT, magnitudes, spectral centroid, and spectral flux.
+- `AVAudioSession` input gain: use the maximum gain only when the current audio route supports setting it.
 - In-memory PCM session store: bounded temporary replay buffer; no file persistence.
 - `AVAudioPlayerNode`: replay scheduled `AVAudioPCMBuffer` chunks locally.
 - SwiftUI `Canvas`, `TimelineView`, gradients, shapes: rendering.
@@ -66,7 +69,7 @@ Responsibilities:
 
 - `AudioCaptureService`: request permission, configure/start/stop engine, and deliver buffers; never own UI state.
 - `InMemoryAudioSession`: retain bounded PCM chunks only for the current session; expose replay data and clear it explicitly.
-- `AudioAnalyzer`: convert buffers to compact `AudioFeatures`; keep DSP off the UI path.
+- `AudioAnalyzer`: convert buffers to compact `AudioFeatures`, track an adaptive noise floor, estimate signal-to-noise, and keep DSP off the UI path.
 - `AffectMapper`: apply the selected research-informed valence/arousal model and map coordinates to a mood family; this is product logic, not an iOS API.
 - `VisualizationMapper`: convert affect coordinates and intensity into color and motion parameters.
 - `AudioReplayService`: schedule temporary PCM buffers to `AVAudioPlayerNode`; never export or write them to disk.

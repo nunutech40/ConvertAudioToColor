@@ -8,6 +8,8 @@ struct AudioFeatures: Sendable, Equatable {
     var pauseRatio: Float = 1
     var speechRhythm: Float = 0
     var isSilent: Bool = true
+    var noiseLevel: Float = 0
+    var signalToNoise: Float = 0
 }
 
 enum EmotionFamily: String, Sendable, CaseIterable {

@@ -4,6 +4,7 @@ import AVFoundation
 final class AudioAnalyzer {
     private var previousEnergy: Float = 0
     private var previousSpectrum = [Float]()
+    private var noiseFloor: Float = 0.008
 
     func analyze(_ buffer: AVAudioPCMBuffer) -> AudioFeatures {
         guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else {
@@ -14,15 +15,22 @@ final class AudioAnalyzer {
         var rms: Float = 0
         vDSP_rmsqv(samples, 1, &rms, vDSP_Length(sampleCount))
 
-        let energy = AudioMath.clamp(rms * 8)
-        let silent = energy < 0.04
+        let rawEnergy = AudioMath.clamp(rms * 8)
+        updateNoiseFloor(with: rawEnergy)
+
+        // Lift quiet signals above the current device/room noise floor.
+        // The final clamp prevents a very loud frame from dominating the visualizer.
+        let energy = AudioMath.clamp((rawEnergy - noiseFloor) * 1.35)
+        let signalToNoise = AudioMath.clamp((rawEnergy - noiseFloor) / max(noiseFloor, 0.01), 0, 8) / 8
+        let silent = signalToNoise < 0.08
         let rhythm = AudioMath.clamp(abs(energy - previousEnergy) * 6)
         previousEnergy = energy
 
         guard let spectrum = makeSpectrum(samples: samples, count: sampleCount) else {
             return AudioFeatures(energy: energy, pitchVariation: rhythm,
                                  pauseRatio: silent ? 1 : 0, speechRhythm: rhythm,
-                                 isSilent: silent)
+                                 isSilent: silent, noiseLevel: noiseFloor,
+                                 signalToNoise: signalToNoise)
         }
 
         let total = max(spectrum.reduce(0, +), 0.0001)
@@ -40,8 +48,17 @@ final class AudioAnalyzer {
             pitchVariation: rhythm,
             pauseRatio: silent ? 1 : 0,
             speechRhythm: rhythm,
-            isSilent: silent
+            isSilent: silent,
+            noiseLevel: noiseFloor,
+            signalToNoise: signalToNoise
         )
+    }
+
+    private func updateNoiseFloor(with energy: Float) {
+        // Follow only the quiet baseline so speech/noise peaks do not become the baseline.
+        if energy < noiseFloor * 2.5 {
+            noiseFloor = noiseFloor * 0.985 + energy * 0.015
+        }
     }
 
     private func spectralFlux(current: [Float], total: Float) -> Float {

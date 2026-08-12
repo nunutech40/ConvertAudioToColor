@@ -81,7 +81,9 @@ final class VoiceVisualizerViewModel: ObservableObject {
             pitchVariation: AudioMath.smooth(previous: lastFeatures.pitchVariation, current: incoming.pitchVariation),
             pauseRatio: AudioMath.smooth(previous: lastFeatures.pauseRatio, current: incoming.pauseRatio),
             speechRhythm: AudioMath.smooth(previous: lastFeatures.speechRhythm, current: incoming.speechRhythm),
-            isSilent: incoming.isSilent
+            isSilent: incoming.isSilent,
+            noiseLevel: incoming.noiseLevel,
+            signalToNoise: incoming.signalToNoise
         )
 
         lastFeatures = smoothed

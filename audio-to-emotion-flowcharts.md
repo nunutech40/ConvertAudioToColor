@@ -11,44 +11,46 @@ flowchart TD
     B --> Z[Replay lokal - AudioReplayService dan AVAudioPlayerNode]
     Z --> AA[Suara diputar ke speaker]
 
-    C --> D[Energy atau volume - RMS calculation]
+    C --> D[Energy atau volume - RMS calculation + adaptive noise floor]
     C --> E[Sharpness - FFT dan spectral centroid]
     C --> F[Tension - spectral flux]
     C --> G[Pitch variation - autocorrelation atau YIN]
     C --> H[Jeda dan silence - RMS threshold]
     C --> I[Tempo atau ritme - energy envelope dan onset detection]
+    C --> J[Ambient noise dan signal-to-noise - AudioAnalyzer]
 
-    D --> J[Normalisasi dan smoothing - FeaturePreprocessor]
-    E --> J
-    F --> J
-    G --> J
-    H --> J
-    I --> J
+    D --> K[Normalisasi dan smoothing - FeaturePreprocessor]
+    E --> K
+    F --> K
+    G --> K
+    H --> K
+    I --> K
+    J --> K
 
-    J --> K[Valence dan arousal - AffectMapper]
-    K --> L[Emotion family dan intensity]
+    K --> L[Valence dan arousal - AffectMapper]
+    L --> M[Emotion family dan intensity]
 
-    L --> M{Mood visual dominan}
-    M -- Sadness --> N[Palet biru-indigo; redup dan lambat]
-    M -- Anger --> O[Palet merah; jenuh dan tajam]
-    M -- Fear --> P[Palet biru-violet; bergetar dan tidak stabil]
-    M -- Joy --> Q[Palet kuning-oranye; terang dan melebar]
-    M -- Trust --> R[Palet teal-hijau; stabil dan mengalir]
-    M -- Surprise --> S[Palet magenta-kuning; pulse mendadak]
-    M -- Disgust --> T[Palet hijau-kuning kusam; gerak terdistorsi]
-    M -- Anticipation --> U[Palet oranye-pink; gerak meningkat]
+    M --> N{Mood visual dominan}
+    N -- Sadness --> O[Palet biru-indigo; redup dan lambat]
+    N -- Anger --> P[Palet merah; jenuh dan tajam]
+    N -- Fear --> Q[Palet biru-violet; bergetar dan tidak stabil]
+    N -- Joy --> R[Palet kuning-oranye; terang dan melebar]
+    N -- Trust --> S[Palet teal-hijau; stabil dan mengalir]
+    N -- Surprise --> T[Palet magenta-kuning; pulse mendadak]
+    N -- Disgust --> U[Palet hijau-kuning kusam; gerak terdistorsi]
+    N -- Anticipation --> V[Palet oranye-pink; gerak meningkat]
 
-    N --> V[VisualizationMapper]
-    O --> V
-    P --> V
-    Q --> V
-    R --> V
-    S --> V
-    T --> V
-    U --> V
+    O --> W[VisualizationMapper]
+    P --> W
+    Q --> W
+    R --> W
+    S --> W
+    T --> W
+    U --> W
+    V --> W
 
-    V --> W[Hue, saturation, brightness, shape, motion, glow]
-    W --> X[Visual mood di SwiftUI Canvas]
+    W --> X[Hue, saturation, brightness, shape, motion, glow]
+    X --> Y[Visual mood di SwiftUI Canvas]
 ```
 
 `AudioAnalyzer`, `FeaturePreprocessor`, `AffectMapper`, dan `VisualizationMapper` adalah komponen/fungsi yang dibuat oleh aplikasi. Tidak ada `EmotionMapper` bawaan iOS. `AffectMapper` merupakan ruleset produk berbasis valence/arousal yang dapat diuji dan dikalibrasi.
@@ -121,7 +123,7 @@ flowchart LR
 | `AVAudioSession` | Permission dan akses audio input/output | Status audio ke service |
 | `AVAudioEngine` | Menangkap audio real-time | Buffer audio melalui input tap |
 | `AVAudioPCMBuffer` | Sampel PCM sementara di RAM | Session store dan analyzer |
-| `AudioAnalyzer` | RMS, silence, FFT, spectral centroid/flux, pitch variation | `AudioFeatures` |
+| `AudioAnalyzer` | RMS, silence, FFT, spectral centroid/flux, pitch variation, noise floor, signal-to-noise | `AudioFeatures` |
 | `Accelerate/vDSP` | Windowing, FFT, magnitude, spectral features | Data spektrum ke analyzer |
 | `FeaturePreprocessor` | Normalisasi, clamping, smoothing, dan peak handling | Fitur stabil ke `AffectMapper` |
 | `AffectMapper` | Ruleset berbasis valence/arousal; bukan API bawaan atau detector universal | `AffectState` |

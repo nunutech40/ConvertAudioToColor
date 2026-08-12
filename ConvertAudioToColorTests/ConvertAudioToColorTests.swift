@@ -35,4 +35,11 @@ final class ConvertAudioToColorTests: XCTestCase {
         XCTAssertLessThanOrEqual(visual.saturation, 1)
         XCTAssertGreaterThan(visual.glowRadius, 20)
     }
+
+    func testQuietAudioFeaturesExposeNoiseAndSignalToNoise() {
+        let features = AudioFeatures(energy: 0.08, pauseRatio: 0,
+                                     isSilent: false, noiseLevel: 0.02, signalToNoise: 0.5)
+        XCTAssertEqual(features.noiseLevel, 0.02)
+        XCTAssertEqual(features.signalToNoise, 0.5)
+    }
 }
