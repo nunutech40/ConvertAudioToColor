@@ -58,12 +58,9 @@ final class AIAnalysisService {
         Transcript: \(transcript.isEmpty ? "(tidak tersedia)" : transcript)
 
         Format jawaban:
-        Kondisinya:
-        Tulis 2-4 kalimat tentang kemungkinan kondisi/situasi orang ini berdasarkan kecocokan data suara dan konteks umum ucapannya.
-        Jika datanya terlalu singkat atau tidak cukup kuat, katakan bahwa hasilnya hanya indikasi ringan.
-
-        Roasting:
-        Tulis 1-3 kalimat roasting yang terasa seperti teman dekat sedang nyeletuk. Harus ringan, relevan dengan pola emosi yang benar-benar terlihat dan konteks umum ucapan, tanpa mengulang kata kasar atau isi transcript secara detail.
+        Tulis hanya 1-3 kalimat roasting yang terasa seperti teman dekat sedang nyeletuk.
+        Roasting harus ringan, natural, relevan dengan pola emosi yang benar-benar terlihat dan konteks umum ucapan.
+        Jangan menulis bagian berjudul "Kondisinya", jangan menjelaskan analisis secara terpisah, dan jangan mengulang kata kasar atau isi transcript secara detail.
         """
 
         let body = ChatRequest(model: NineRouterConfiguration.model, messages: [

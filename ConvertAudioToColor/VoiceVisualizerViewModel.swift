@@ -160,11 +160,20 @@ final class VoiceVisualizerViewModel: ObservableObject {
     }
 
     private func cleanAIResult(_ text: String) -> String {
-        text
+        var cleaned = text
             .replacingOccurrences(of: "**", with: "")
             .replacingOccurrences(of: "__", with: "")
             .replacingOccurrences(of: "###", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Backward compatibility if an older prompt still returns both sections.
+        if let roastingRange = cleaned.range(of: "Roasting:", options: [.caseInsensitive]) {
+            cleaned = String(cleaned[roastingRange.upperBound...])
+        } else if cleaned.range(of: "Kondisinya:", options: [.caseInsensitive]) != nil {
+            cleaned = "Roasting belum tersedia untuk sesi ini."
+        }
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func finishSessionSummary() {
