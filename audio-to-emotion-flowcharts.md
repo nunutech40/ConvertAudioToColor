@@ -6,64 +6,51 @@ Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengub
 
 ```mermaid
 flowchart TD
-    A[User membuka aplikasi] --> B[State: Ready]
-    B --> C{User menekan Start?}
+    A[Input suara dari microphone] --> B[Audio mentah sementara]
+    B --> C[Ekstraksi karakter suara]
 
-    C -- Tidak --> B
-    C -- Ya --> D[Cek permission microphone]
+    C --> D[Energy atau volume]
+    C --> E[Sharpness atau kecerahan spektrum]
+    C --> F[Tension atau perubahan mendadak]
+    C --> G[Pitch variation]
+    C --> H[Jeda dan silence]
+    C --> I[Tempo atau ritme bicara]
 
-    D --> E{Permission diberikan?}
-    E -- Tidak --> F[State: Permission Denied]
-    F --> G[Tampilkan instruksi Settings]
-    G --> B
+    D --> J[Normalisasi dan smoothing]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+    I --> J
 
-    E -- Ya --> H[Konfigurasi audio session]
-    H --> I{Audio tersedia dan berhasil dikonfigurasi?}
+    J --> K[Hitung arousal]
+    J --> L[Hitung valence]
 
-    I -- Tidak --> J[State: Unavailable / Failed]
-    J --> B
+    K --> M[Interpretasi mood suara]
+    L --> M
 
-    I -- Ya --> K[Start AVAudioEngine]
-    K --> L[Pasang audio tap]
-    L --> M[State: Listening]
+    M --> N{Mood dominan}
+    N -- Kesal --> O[Emosi negatif dan intens]
+    N -- Sedih --> P[Emosi negatif dan energi rendah]
+    N -- Tenang --> Q[Emosi stabil dan energi rendah]
+    N -- Senang --> R[Emosi positif dan energi tinggi]
+    N -- Cemas --> S[Emosi negatif dan tidak stabil]
 
-    M --> N[Terima audio buffer]
-    N --> O[Hitung fitur suara]
-    O --> P[Hitung energy, sharpness, tension, pitch variation, pause]
-
-    P --> Q[Normalisasi dan smoothing]
-    Q --> R[Hitung arousal]
-    Q --> S[Hitung valence]
-
-    R --> T[Interpretasi mood]
+    O --> T[Mapping warna dan perilaku visual]
+    P --> T
+    Q --> T
+    R --> T
     S --> T
 
-    T --> U{Mood suara}
-    U -- Kesal --> V[Palette merah orange - gerakan cepat dan tajam]
-    U -- Sedih --> W[Palette biru indigo - gerakan lambat dan turun]
-    U -- Tenang --> X[Palette teal cyan - gerakan halus dan stabil]
-    U -- Senang --> Y[Palette kuning coral - gerakan memantul dan cerah]
-    U -- Cemas --> Z[Palette ungu magenta - getaran dan pulse cepat]
+    T --> U[Hue, saturation, brightness]
+    T --> V[Ukuran orb dan intensitas glow]
+    T --> W[Kecepatan gerak dan bentuk]
+    T --> X[Pulse, ripple, dan jitter]
 
-    V --> AA[Update VisualizationState]
-    W --> AA
-    X --> AA
-    Y --> AA
-    Z --> AA
-
-    AA --> AB[SwiftUI Canvas merender warna, bentuk, glow, dan animasi]
-    AB --> M
-
-    M --> AC{User menekan Stop?}
-    AC -- Ya --> AD[Remove tap dan stop engine]
-    AD --> AE[State: Ready]
-    AE --> B
-    AC -- Tidak --> M
-
-    M --> AF{App masuk background/inactive?}
-    AF -- Ya --> AG[Stop capture dengan aman]
-    AG --> AH[State: Paused]
-    AH --> B
+    U --> Y[Visual mood di SwiftUI Canvas]
+    V --> Y
+    W --> Y
+    X --> Y
 ```
 
 Audio mentah hanya digunakan selama proses analisis. Data yang dikirim ke UI berupa fitur ringkas seperti `energy`, `arousal`, `valence`, dan `mood`.
