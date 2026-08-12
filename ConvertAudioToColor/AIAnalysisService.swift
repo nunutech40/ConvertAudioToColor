@@ -26,8 +26,11 @@ final class AIAnalysisService {
 
         let prompt = """
         Analisis sesi suara berikut dengan gaya manusia yang santai, natural, dan lucu.
+        Gunakan DUA sumber bukti secara bersamaan: (1) data emosi terstruktur dari audio dan (2) konteks umum transcript.
+        Jangan menyimpulkan kondisi orang hanya dari transcript atau hanya dari satu label mood.
+        Cocokkan apakah data suara dan isi ucapan saling mendukung. Jika sinyalnya lemah atau bertentangan,
+        katakan dengan jujur bahwa kesimpulannya tidak pasti dan pilih interpretasi yang paling ringan.
         Fokus pada kondisi atau situasi yang mungkin sedang dialami orang ini, bukan membedah semua kalimatnya satu per satu.
-        Gunakan gabungan karakter suara, perubahan mood, energi, dan konteks umum transcript.
 
         Jangan mengutip transcript secara verbatim.
         Jangan mengulang, menyebut, atau membocorkan kata kasar, hinaan, umpatan, atau istilah sensitif yang ada di transcript.
@@ -36,8 +39,16 @@ final class AIAnalysisService {
         Gunakan bahasa kemungkinan: "kelihatannya", "mungkin", atau "terdengar seperti".
         Jangan membuat analisis akademis atau penjelasan panjang.
 
+        Urutan berpikir internal:
+        1. Validasi kualitas data: durasi, jumlah sampel, energi, peak, arousal, valence, dan mood dominan.
+        2. Cari pola perubahan mood yang benar-benar muncul, bukan satu frame yang menyimpang.
+        3. Baca transcript hanya untuk memahami konteks umum, tanpa mengulang kata-katanya.
+        4. Gabungkan kedua sumber dan beri tingkat keyakinan secara natural jika diperlukan.
+        5. Buat roasting berdasarkan pola yang terbukti dari data, bukan asumsi kepribadian.
+
         Mood dominan: \(summary.dominantFamily.rawValue)
         Mood sekunder: \(summary.secondaryFamilies.map(\.rawValue).joined(separator: ", "))
+        Jumlah sampel emosi: \(summary.sampleCount)
         Durasi: \(summary.duration) detik
         Energi rata-rata: \(summary.averageEnergy)
         Peak energi: \(summary.peakEnergy)
@@ -47,10 +58,11 @@ final class AIAnalysisService {
 
         Format jawaban:
         Kondisinya:
-        Tulis 2-4 kalimat tentang kemungkinan kondisi/situasi orang ini berdasarkan data suara dan konteks umum ucapannya.
+        Tulis 2-4 kalimat tentang kemungkinan kondisi/situasi orang ini berdasarkan kecocokan data suara dan konteks umum ucapannya.
+        Jika datanya terlalu singkat atau tidak cukup kuat, katakan bahwa hasilnya hanya indikasi ringan.
 
         Roasting:
-        Tulis 1-3 kalimat roasting yang terasa seperti teman dekat sedang nyeletuk. Harus ringan, relevan dengan energi dan mood sesi, tanpa mengulang kata kasar atau isi transcript secara detail.
+        Tulis 1-3 kalimat roasting yang terasa seperti teman dekat sedang nyeletuk. Harus ringan, relevan dengan pola emosi yang benar-benar terlihat dan konteks umum ucapan, tanpa mengulang kata kasar atau isi transcript secara detail.
         """
 
         let body = ChatRequest(model: NineRouterConfiguration.model, messages: [
