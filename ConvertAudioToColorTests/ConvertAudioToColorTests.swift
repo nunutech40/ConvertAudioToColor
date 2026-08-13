@@ -1,6 +1,8 @@
 import XCTest
+import AVFoundation
 @testable import ConvertAudioToColor
 
+@MainActor
 final class ConvertAudioToColorTests: XCTestCase {
     func testNormalizationAndClamping() {
         XCTAssertEqual(AudioMath.normalized(5, min: 0, max: 10), 0.5)
@@ -41,5 +43,56 @@ final class ConvertAudioToColorTests: XCTestCase {
                                      isSilent: false, noiseLevel: 0.02, signalToNoise: 0.5)
         XCTAssertEqual(features.noiseLevel, 0.02)
         XCTAssertEqual(features.signalToNoise, 0.5)
+    }
+
+    func testInMemorySessionRollsOutOldestBuffers() throws {
+        let session = InMemoryAudioSession(maxBufferCount: 3)
+        let format = makeFormat()
+        let first = makeBuffer(format)
+        let second = makeBuffer(format)
+        let third = makeBuffer(format)
+        let fourth = makeBuffer(format)
+
+        session.append(first)
+        session.append(second)
+        session.append(third)
+        XCTAssertEqual(session.buffers.count, 3)
+        XCTAssertTrue(session.buffers[0] === first)
+
+        session.append(fourth)
+        XCTAssertEqual(session.buffers.count, 3)
+        XCTAssertTrue(session.buffers[0] === second)
+        XCTAssertTrue(session.buffers[1] === third)
+        XCTAssertTrue(session.buffers[2] === fourth)
+    }
+
+    func testInMemorySessionRetainedAndCapacityDuration() throws {
+        let session = InMemoryAudioSession(maxBufferCount: 900)
+        let format = makeFormat()
+        session.append(makeBuffer(format))
+        session.append(makeBuffer(format))
+
+        XCTAssertEqual(session.retainedDuration, 2 * 1024.0 / 48_000.0, accuracy: 0.0001)
+        XCTAssertEqual(session.capacityDuration, 900 * 1024.0 / 48_000.0, accuracy: 0.0001)
+    }
+
+    func testInMemorySessionClearResetsReplayData() throws {
+        let session = InMemoryAudioSession(maxBufferCount: 3)
+        session.append(makeBuffer(makeFormat()))
+        session.append(makeBuffer(makeFormat()))
+        XCTAssertFalse(session.isEmpty)
+        session.clear()
+        XCTAssertTrue(session.isEmpty)
+        XCTAssertEqual(session.retainedDuration, 0)
+    }
+
+    private func makeFormat() -> AVAudioFormat {
+        AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+    }
+
+    private func makeBuffer(_ format: AVAudioFormat) -> AVAudioPCMBuffer {
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)!
+        buffer.frameLength = 1024
+        return buffer
     }
 }

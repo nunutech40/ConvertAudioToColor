@@ -5,6 +5,8 @@ final class SpeechTranscriptService {
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "id-ID"))
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var didFinish = false
+    private let lock = NSLock()
 
     var onText: ((String) -> Void)?
 
@@ -18,39 +20,118 @@ final class SpeechTranscriptService {
 
     func start() {
         guard let recognizer, recognizer.isAvailable else { return }
-        stop()
+        cancel()
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        self.request = request
-        task = recognizer.recognitionTask(with: request) { [weak self] result, _ in
-            guard let result else { return }
-            self?.onText?(result.bestTranscription.formattedString)
+        let task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+            if let result {
+                self.onText?(result.bestTranscription.formattedString)
+                if result.isFinal {
+                    self.lock.lock()
+                    self.didFinish = true
+                    self.lock.unlock()
+                }
+            } else if error != nil {
+                self.lock.lock()
+                self.didFinish = true
+                self.lock.unlock()
+            }
         }
+        lock.lock()
+        self.request = request
+        self.task = task
+        self.didFinish = false
+        lock.unlock()
     }
 
     func append(_ buffer: AVAudioPCMBuffer) {
-        request?.append(buffer)
+        lock.lock()
+        let activeRequest = request
+        lock.unlock()
+        activeRequest?.append(buffer)
     }
 
-    func stop() {
-        request?.endAudio()
-        task?.cancel()
-        request = nil
+    /// Signals the recognizer that audio ended, then waits up to `timeout` for
+    /// the final transcript before cancelling. The last partial/final text is
+    /// still delivered through `onText` when it arrives.
+    func finish(timeout: TimeInterval = 2.0) async {
+        lock.lock()
+        let activeTask = task
+        let activeRequest = request
+        lock.unlock()
+        activeRequest?.endAudio()
+
+        let deadline = Date().addingTimeInterval(timeout)
+        var done = false
+        while Date() < deadline {
+            lock.lock()
+            done = didFinish
+            lock.unlock()
+            if done { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        if !done { activeTask?.cancel() }
+
+        lock.lock()
+        // Only clear the state this call still owns; a newer start() may have
+        // installed a fresh task that must not be touched or reset.
+        if task === activeTask {
+            task = nil
+            didFinish = false
+        }
+        if request === activeRequest {
+            request = nil
+        }
+        lock.unlock()
+    }
+
+    /// Immediately discards the in-flight recognition without waiting.
+    func cancel() {
+        lock.lock()
+        let activeTask = task
+        let activeRequest = request
         task = nil
+        request = nil
+        didFinish = false
+        lock.unlock()
+        activeRequest?.endAudio()
+        activeTask?.cancel()
     }
 }
 
 final class InMemoryAudioSession {
     private(set) var buffers: [AVAudioPCMBuffer] = []
-    private let maxBuffers = 900
+    private let maxBufferCount: Int
 
+    init(maxBufferCount: Int = 900) {
+        self.maxBufferCount = maxBufferCount
+    }
+
+    /// Rolling policy: keeps only the newest `maxBufferCount` chunks and
+    /// discards the oldest ones, so replay memory stays bounded.
     func append(_ buffer: AVAudioPCMBuffer) {
-        guard buffers.count < maxBuffers else { return }
+        if buffers.count >= maxBufferCount {
+            buffers.removeFirst(buffers.count - maxBufferCount + 1)
+        }
         buffers.append(buffer)
     }
 
     func clear() { buffers.removeAll() }
     var isEmpty: Bool { buffers.isEmpty }
+
+    /// Actual audio duration currently retained for replay.
+    var retainedDuration: TimeInterval {
+        guard let first = buffers.first else { return 0 }
+        let totalFrames = buffers.reduce(0) { $0 + $1.frameLength }
+        return Double(totalFrames) / first.format.sampleRate
+    }
+
+    /// Maximum audio duration the rolling window can hold.
+    var capacityDuration: TimeInterval {
+        guard let first = buffers.first else { return 0 }
+        return Double(maxBufferCount) * Double(first.frameLength) / first.format.sampleRate
+    }
 }
 
 final class AudioCaptureService {
@@ -111,13 +192,20 @@ final class AudioCaptureService {
         try engine.start()
     }
 
-    func stop() {
-        transcript.stop()
+    /// Stops the engine and tap. When `finalizeTranscript` is true the speech
+    /// recognizer is allowed to finish with a timeout instead of being cancelled
+    /// immediately, so the final transcript text can arrive.
+    func stop(finalizeTranscript: Bool = false) {
         if tapInstalled {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
         }
         engine.stop()
+        if finalizeTranscript {
+            Task { await transcript.finish(timeout: 2.0) }
+        } else {
+            transcript.cancel()
+        }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AVFoundation
 
 @MainActor
 final class VoiceVisualizerViewModel: ObservableObject {
@@ -24,6 +25,7 @@ final class VoiceVisualizerViewModel: ObservableObject {
     private var sessionSamples = [AffectState]()
     private var sessionEnergies = [Float]()
     private var chartSequence = 0
+    private var interruptionObserver: NSObjectProtocol?
 
     init() {
         capture.onFeatures = { [weak self] features in
@@ -31,6 +33,22 @@ final class VoiceVisualizerViewModel: ObservableObject {
         }
         capture.onTranscript = { [weak self] text in
             Task { @MainActor in self?.transcript = text }
+        }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let info = note.userInfo,
+                  let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+            Task { @MainActor in self?.handleAudioInterruption(type) }
+        }
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
         }
     }
 
@@ -55,17 +73,12 @@ final class VoiceVisualizerViewModel: ObservableObject {
     }
 
     func stop() {
-        capture.stop()
+        guard state == .listening else { return }
+        capture.stop(finalizeTranscript: true)
         replayService.stop()
         finishSessionSummary()
         hasReplay = !capture.session.isEmpty
         state = .ready
-
-        Task {
-            // Give Speech Recognition a moment to deliver its final partial result.
-            try? await Task.sleep(for: .milliseconds(500))
-            analyzeAndRoast()
-        }
     }
 
     func replay() {
@@ -92,6 +105,35 @@ final class VoiceVisualizerViewModel: ObservableObject {
         capture.session.clear()
         hasReplay = false
         state = .ready
+    }
+
+    /// Lifecycle: called when the app leaves the active scene. Stops capture
+    /// and playback safely while keeping the session buffers for replay.
+    func pause() {
+        guard state == .listening || state == .playing else { return }
+        capture.stop()
+        replayService.stop()
+        hasReplay = !capture.session.isEmpty
+        state = .paused
+    }
+
+    func handleAudioInterruption(_ type: AVAudioSession.InterruptionType) {
+        switch type {
+        case .began:
+            // Stop capture/playback safely; session buffers stay for replay.
+            pause()
+        case .ended:
+            // Stay paused until the user restarts explicitly.
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    var replayPolicyText: String {
+        guard hasReplay, !capture.session.isEmpty else { return "" }
+        let seconds = capture.session.retainedDuration
+        return String(format: "Replay local · rolling, keeps last %.0fs", seconds)
     }
 
     private func receive(_ incoming: AudioFeatures) {

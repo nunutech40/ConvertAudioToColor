@@ -1,6 +1,6 @@
 # Audio-to-Emotion Visualizer — Flowcharts & Technology Map
 
-Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengubah karakter suara menjadi mood visual berupa warna, bentuk, glow, dan animasi. Audio mentah hanya ditahan sementara di RAM agar sesi dapat dianalisis dan di-replay secara lokal. Setelah sesi dihentikan, transcript sementara dan ringkasan fitur diproses otomatis oleh AI; audio mentah tidak dikirim.
+Dokumen ini menjelaskan alur bisnis dan alur antar-object teknologi untuk mengubah karakter suara menjadi mood visual berupa warna, bentuk, glow, dan animasi. Audio mentah hanya ditahan sementara di RAM dengan buffer rolling terbatas agar sesi dapat dianalisis dan di-replay secara lokal. Setelah sesi dihentikan, transcript sementara dan ringkasan fitur diproses oleh AI hanya ketika pengguna menekan tombol analisis; audio mentah tidak dikirim.
 
 ## 1. Flowchart Logic Bisnis
 
@@ -54,8 +54,8 @@ flowchart TD
     Y -- Listening --> Z[Rolling Live Audio Chart - Swift Charts]
     Y -- Stop --> AA[Emotion Timeline seluruh sesi - Swift Charts]
     AA --> AB[Session Summary bahasa manusia]
-    AB --> AC[Stop memicu AI analysis otomatis]
-    AC --> AD[Gabungkan transcript + data emosi secara otomatis]
+    AB --> AC[Pengguna menekan Analyze - AI analysis manual]
+    AC --> AD[Gabungkan transcript + data emosi]
     AD --> AE[AIAnalysisService - URLSession ke 9Router]
     AE --> AF[Analisis emosi, isi ucapan, dan roasting playful]
     AF --> AG[Inject hasil ke Session Summary]
@@ -71,7 +71,7 @@ flowchart LR
     B --> C[VoiceVisualizerViewModel MainActor]
     C --> D[SpeechTranscriptService - Speech framework]
     D --> C
-    C --> E{Sesi dihentikan?}
+    C --> E{Sesi dihentikan dan pengguna menekan Analyze?}
     E -- Ya --> F[AIAnalysisService - URLSession]
     F --> G[9Router /v1/chat/completions - codexCombo]
     G --> C
@@ -85,7 +85,7 @@ flowchart LR
     L --> M[Input Node Audio Tap]
     M --> N[AVAudioPCMBuffer]
 
-    N --> O[InMemoryAudioSession - bounded RAM]
+    N --> O[InMemoryAudioSession - bounded rolling RAM]
     O --> P[AudioReplayService]
     P --> Q[AVAudioPlayerNode]
     Q --> R[iPhone Speaker]
@@ -134,10 +134,10 @@ flowchart LR
 | `ContentView` | Input Start/Stop/Replay/Discard dan lifecycle UI | Intent ke `ViewModel` |
 | `VoiceVisualizerViewModel` | State aplikasi, error, lifecycle, koordinasi | Perintah ke service dan state ke SwiftUI |
 | `AudioCaptureService` | Permission, konfigurasi audio, start/stop engine | `AVAudioPCMBuffer` ke session store dan analyzer |
-| `InMemoryAudioSession` | Menahan PCM chunks sementara dengan batas durasi/memori | Buffer ke replay service; dapat di-clear |
+| `InMemoryAudioSession` | Menahan PCM chunks sementara dengan buffer rolling terbatas (chunk tertua dibuang saat penuh) | Buffer ke replay service; dapat di-clear |
 | `AudioReplayService` | Menjadwalkan buffer RAM untuk playback lokal | `AVAudioPlayerNode` dan speaker |
 | `SpeechTranscriptService` | Mengubah ucapan menjadi transcript sementara | `VoiceVisualizerViewModel` |
-| `AIAnalysisService` | Mengirim transcript dan ringkasan fitur ke 9Router otomatis setelah Stop | Hasil analisis dan roasting ke `VoiceVisualizerViewModel` |
+| `AIAnalysisService` | Mengirim transcript dan ringkasan fitur ke 9Router saat pengguna menekan tombol analisis setelah Stop | Hasil analisis dan roasting ke `VoiceVisualizerViewModel` |
 | `9Router` | Gateway OpenAI-compatible dengan model `codexCombo` | Response analisis AI |
 | `AVAudioSession` | Permission dan akses audio input/output | Status audio ke service |
 | `AVAudioEngine` | Menangkap audio real-time | Buffer audio melalui input tap |
@@ -220,7 +220,7 @@ Microphone
   → Swift Charts
 ```
 
-Replay harus dipicu eksplisit oleh pengguna. Session buffer memiliki batas durasi atau memory budget; buffer tidak boleh tumbuh tanpa batas. Pengguna dapat menekan Discard untuk menghapus audio dari RAM. Audio tidak ditulis ke file dan tidak dikirim ke server. Setelah Stop, hanya transcript sementara dan ringkasan fitur yang dikirim ke 9Router untuk analisis AI.
+Replay harus dipicu eksplisit oleh pengguna. Session buffer memakai kebijakan rolling terbatas: ketika batas buffer tercapai, chunk tertua dibuang dan yang terbaru dipertahankan, sehingga buffer tidak pernah tumbuh tanpa batas. Durasi yang dipertahankan dan sifat rolling ditampilkan di UI (misalnya "Replay local · rolling, keeps last ~20s"). Pengguna dapat menekan Discard untuk menghapus audio dari RAM. Audio tidak ditulis ke file dan tidak dikirim ke server. Setelah Stop, transcript sementara difinalisasi Speech dengan timeout pendek; data ringkas hanya dikirim ke 9Router saat pengguna menekan tombol analisis.
 
 ## Algoritma paling penting
 
@@ -274,14 +274,16 @@ Dengan model ini, lonjakan merah/oranye singkat tetap terlihat pada timeline akh
 
 ```text
 Stop
-  → SessionSummary + EmotionTimeline
-  → AI analysis otomatis
-  → transcript sementara + data emosi ringkas
-  → URLSession
-  → 9Router /v1/chat/completions
-  → model codexCombo
-  → analisis emosi + analisis isi ucapan + roasting playful
-  → tampilkan hasil AI
+  -> SessionSummary + EmotionTimeline
+  -> transcript difinalisasi Speech dengan timeout pendek
+  -> tampil tombol Analyze
+  -> pengguna menekan Analyze
+  -> transcript sementara + data emosi ringkas
+  -> URLSession
+  -> 9Router /v1/chat/completions
+  -> model codexCombo
+  -> analisis emosi + analisis isi ucapan + roasting playful
+  -> tampilkan hasil AI
 ```
 
 Yang dikirim ke AI adalah transcript dan fitur ringkas, bukan PCM/audio mentah. API key dimasukkan secara lokal pada prototype dan tidak boleh di-commit ke repository. Untuk production, request sebaiknya dipindahkan ke backend agar key tidak dapat diekstrak dari aplikasi iPhone.

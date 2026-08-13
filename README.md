@@ -68,10 +68,11 @@ Aplikasi juga menampilkan ringkasan yang lebih mudah dipahami, misalnya:
 - Live audio chart menggunakan Swift Charts.
 - Emotion timeline setelah sesi selesai.
 - Session summary berupa energi rata-rata, peak, valence, arousal, mood dominan, dan mood sekunder.
-- Replay sesi secara lokal.
+- Replay sesi secara lokal dengan kebijakan rolling terbatas (menyimpan beberapa detik terakhir, buffer tertua dibuang).
 - Speech Recognition untuk membuat transcript sementara.
-- Analisis AI dan roasting otomatis setelah sesi selesai.
-- Penyimpanan audio sementara di RAM dengan batas buffer.
+- Analisis AI dan roasting bersifat opsional dan dipicu manual setelah sesi selesai.
+- Penanganan app lifecycle dan audio interruption: capture/playback dihentikan dengan aman saat app keluar dari foreground atau ada interrupt, lalu kembali dalam keadaan Paused.
+- Penyimpanan audio sementara di RAM dengan batas buffer rolling.
 - Adaptive noise floor untuk membantu membaca suara lemah dan kebisingan ruangan.
 - Signal-to-noise estimation.
 - Tidak membuat file rekaman.
@@ -133,7 +134,7 @@ Kemudian `AffectMapper` memilih emotion family seperti `Trust`, `Sadness`, `Ange
 
 ## AI analysis dan roasting
 
-Setelah sesi dihentikan, aplikasi otomatis mengirim data ringkas berikut ke 9Router dan memasukkan hasil pembacaan ke kartu `SESSION SUMMARY`. Tidak ada panel API key di UI; konfigurasi 9Router berasal dari file lokal development:
+Setelah sesi dihentikan, aplikasi menampilkan ringkasan dan tombol `Analyze with AI`. Analisis tidak berjalan otomatis saat Stop; data ringkas berikut dikirim ke 9Router hanya ketika pengguna menekan tombol tersebut:
 
 - transcript sementara;
 - mood dominan dan mood sekunder;
@@ -141,7 +142,7 @@ Setelah sesi dihentikan, aplikasi otomatis mengirim data ringkas berikut ke 9Rou
 - valence dan arousal;
 - durasi sesi.
 
-Konfigurasi default:
+Tidak ada panel API key di UI; konfigurasi 9Router berasal dari file lokal development:
 
 ```text
 Base URL: https://9router.103-59-94-121.nip.io/v1
@@ -162,7 +163,7 @@ Audio diproses secara lokal di perangkat.
 - Tombol Discard menghapus buffer sesi.
 - Tidak ada file audio yang dibuat.
 - Tidak ada upload atau transmisi audio mentah.
-- Transcript sementara dan ringkasan fitur dikirim ke AI otomatis setelah sesi dihentikan.
+- Transcript sementara dan ringkasan fitur dikirim ke AI hanya saat pengguna menekan tombol analisis (manual), tidak otomatis saat Stop.
 - Hasil AI diminta membahas kondisi secara umum dan melakukan roasting ringan tanpa mengutip atau membocorkan ucapan sensitif.
 - Permission microphone diminta setelah pengguna menekan Start.
 
@@ -188,7 +189,7 @@ ConvertAudioToColor/
 
 ## Status implementasi
 
-Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline setelah sesi selesai, session summary, replay lokal, adaptive noise detection, Speech Recognition, dan integrasi 9Router untuk analisis transcript serta roasting otomatis setelah sesi dihentikan.
+Implementasi saat ini sudah mencakup live audio capture, audio analysis, affect mapping, live chart, emotion timeline setelah sesi selesai, session summary, replay lokal dengan buffer rolling terbatas, adaptive noise detection, Speech Recognition, penanganan app lifecycle dan audio interruption, serta integrasi 9Router untuk analisis transcript dan roasting yang dipicu manual setelah sesi dihentikan.
 
 Build aplikasi berhasil dilakukan dengan Xcode. Validasi microphone, speaker, dan kualitas deteksi tetap perlu dilakukan di iPhone fisik karena Simulator tidak mewakili input microphone nyata.
 

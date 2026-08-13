@@ -2,6 +2,7 @@ import Charts
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = VoiceVisualizerViewModel()
 
     var body: some View {
@@ -21,6 +22,11 @@ struct ContentView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                model.pause()
+            }
+        }
     }
 
     private var header: some View {
@@ -50,7 +56,7 @@ struct ContentView: View {
                 Text("noise \(model.features.noiseLevel, specifier: "%.2f")")
                 Spacer()
                 if model.hasReplay {
-                    Text("Replay available").foregroundStyle(.secondary)
+                    Text(model.replayPolicyText).foregroundStyle(.secondary)
                 }
             }
             .font(.caption.monospaced())
@@ -68,12 +74,21 @@ struct ContentView: View {
                     Text("durasi \(summary.duration, specifier: "%.1fs") · rata-rata arousal \(summary.averageArousal, specifier: "%.2f")")
                         .font(.caption.monospaced())
                     if model.aiResult.isEmpty {
-                        Text(model.isAnalyzing
-                             ? "AI sedang membaca pola suara dan konteks ucapanmu..."
-                             : "Sesi selesai. Analisis AI akan muncul setelah data suara dan ucapan selesai diproses.")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .fixedSize(horizontal: false, vertical: true)
+                        if model.isAnalyzing {
+                            Text("AI sedang membaca pola suara dan konteks ucapanmu...")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text("Sesi selesai. Analisis AI bersifat opsional dan dipicu manual.")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button("Analyze with AI", action: model.analyzeAndRoast)
+                                .buttonStyle(.bordered)
+                                .tint(.white)
+                                .controlSize(.small)
+                        }
                     } else {
                         Text("AI READING")
                             .font(.caption.weight(.bold))
@@ -88,6 +103,10 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(maxHeight: 260)
+                        Button("Analyze again", action: model.analyzeAndRoast)
+                            .buttonStyle(.bordered)
+                            .tint(.white)
+                            .controlSize(.small)
                     }
                     Text("Ini interpretasi karakter akustik suara, bukan diagnosis emosi.")
                         .font(.caption2)

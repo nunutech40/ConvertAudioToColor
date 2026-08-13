@@ -10,8 +10,8 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Start/stop microphone capture and analyze audio in real time.
 - Retain a bounded in-memory session buffer for local replay; do not create a recording file.
 - Replay the current temporary session on explicit user action.
-- Request Speech Recognition permission and create a temporary transcript for automatic post-session AI analysis.
-- After Stop, automatically send transcript plus compact session features to an OpenAI-compatible 9Router endpoint.
+- Request Speech Recognition permission and create a temporary transcript for optional post-session AI analysis.
+- After Stop, offer an explicit Analyze action; only then send transcript plus compact session features to an OpenAI-compatible 9Router endpoint.
 - Extract energy, spectral sharpness, tension, pitch variation, pauses, and speech rhythm.
 - Improve weak-signal visibility with supported hardware input gain, adaptive noise-floor tracking, and signal-to-noise estimation.
 - Expose ambient noise as a separate acoustic feature; do not treat all noise as user emotion.
@@ -20,7 +20,7 @@ An iPhone app listens to the user's voice, analyzes its acoustic characteristics
 - Show a rolling live audio chart while listening.
 - After Stop, show the complete color-coded emotion timeline and a human-readable session summary.
 - Show live mood visualization and states: Ready, Listening, Paused, Permission Denied, Unavailable/Failed, Playing.
-- Stop capture when the app enters background/inactive; resume only after explicit user action.
+- Stop capture when the app enters background/inactive or an audio interruption begins; resume only after explicit user action.
 
 Out of scope: claims of reading a user's true subjective emotion, cloud upload of raw audio, permanent recording, ML classification, and exact musical pitch detection.
 
@@ -53,11 +53,43 @@ Temporary PCM buffers
 - `AVAudioSession` input gain: use the maximum gain only when the current audio route supports setting it.
 - In-memory PCM session store: bounded temporary replay buffer; no file persistence.
 - `AVAudioPlayerNode`: replay scheduled `AVAudioPCMBuffer` chunks locally.
-- `Speech`: temporary on-device/Apple speech recognition transcript, depending on the active iOS speech-recognition route.
-- `URLSession`: automatic post-session request to the configured 9Router OpenAI-compatible endpoint.
+- `Speech`: temporary on-device/Apple speech recognition transcript, depending on the active iOS speech-recognition route. On Stop, the recognizer is asked to finalize with a short timeout instead of being cancelled immediately.
+- `URLSession`: explicit post-session request to the configured 9Router OpenAI-compatible endpoint, triggered by the user.
 - SwiftUI layout and styling: screen composition and controls.
 - Swift Charts: rolling live audio chart and post-session emotion timeline.
 - Swift concurrency/MainActor: ownership and state delivery.
+
+## AI technology — post-session roasting
+
+AI dipakai pada tahap setelah sesi selesai, dan hanya ketika pengguna menekan tombol `Analyze with AI`. AI tidak menghitung warna setiap frame secara live dan tidak berjalan otomatis saat Stop.
+
+```text
+Speech framework
+  -> transcript sementara
+
+AudioAnalyzer + SessionSummary
+  -> fitur ringkas: energy, peak, valence, arousal, mood family, durasi
+
+Stop
+  -> transcript difinalisasi Speech dengan timeout pendek
+
+Pengguna menekan Analyze
+  -> transcript + fitur audio ringkas
+  -> AIAnalysisService
+  -> URLSession REST request
+  -> 9Router OpenAI-compatible API
+  -> model codexCombo
+  -> roasting natural di SESSION SUMMARY
+```
+
+`AIAnalysisService.swift` mengirim dua sumber konteks: data emosi terstruktur dari audio dan transcript sementara. Model diminta memeriksa keduanya secara internal, tidak mengutip ucapan sensitif, dan hanya mengembalikan roasting yang ringan serta relevan. PCM/audio mentah tidak pernah dikirim ke AI.
+
+Jadi pembagian teknologinya adalah:
+
+- Live visualization: `AVAudioEngine`, `Accelerate/vDSP`, `AudioAnalyzer`, `AudioMath`, `AffectMapper`, dan Swift Charts.
+- Speech-to-text: Apple `Speech` framework melalui `SpeechTranscriptService`.
+- AI interpretation: `URLSession` ke 9Router melalui `AIAnalysisService`, dengan model `codexCombo`.
+- AI output: roasting berbasis pola emosi sesi dan konteks umum ucapan; bukan diagnosis dan bukan emotion classifier live.
 
 ## Architecture
 
@@ -79,14 +111,14 @@ ContentView
 Responsibilities:
 
 - `AudioCaptureService`: request permission, configure/start/stop engine, and deliver buffers; never own UI state.
-- `InMemoryAudioSession`: retain bounded PCM chunks only for the current session; expose replay data and clear it explicitly.
+- `InMemoryAudioSession`: retain bounded PCM chunks only for the current session using a rolling policy (discard the oldest chunks when the limit is reached); expose replay data, retained duration, and clear it explicitly.
 - `AudioAnalyzer`: convert buffers to compact `AudioFeatures`, track an adaptive noise floor, estimate signal-to-noise, and keep DSP off the UI path.
 - `AffectMapper`: apply the selected research-informed valence/arousal model and map coordinates to a mood family; this is product logic, not an iOS API.
 - Visualization mapping: currently a small static mapping function in `VoiceVisualizerViewModel`; it can become a separate object later if the rules grow.
 - `ChartState`: expose recent live points while listening and complete mood-colored points after Stop.
 - `AudioReplayService`: schedule temporary PCM buffers to `AVAudioPlayerNode`; never export or write them to disk.
-- `SpeechTranscriptService`: turn session speech into a temporary transcript; clear it with the session.
-- `AIAnalysisService`: automatically send compact features and transcript after Stop; never send PCM buffers.
+- `SpeechTranscriptService`: turn session speech into a temporary transcript; on explicit Stop, finalize with a timeout so the final text arrives, and cancel immediately for discard/backgrounding.
+- `AIAnalysisService`: send compact features and transcript only when the user triggers analysis after Stop; never send PCM buffers.
 - `VoiceVisualizerViewModel`: own user-visible state, coordinate services, handle errors/lifecycle, and publish on MainActor.
 - `ContentView`: render state and send intents; no AVAudioEngine or DSP inside `body`.
 
@@ -290,24 +322,26 @@ Clamp and smooth all values; do not drive UI directly from noisy raw FFT output.
 ### Phase 3: bounded in-memory replay
 
 ```text
-PCM buffers -> InMemoryAudioSession (RAM only, bounded duration)
+PCM buffers -> InMemoryAudioSession (RAM only, rolling bounded window)
              -> AudioReplayService -> AVAudioPlayerNode -> speaker
 ```
 
-Replay is explicit and local. Use a maximum session duration or memory budget. When the limit is reached, either stop accepting more replay audio or discard the oldest chunks according to the chosen product policy. The policy must be visible in the UI.
+Replay is explicit and local. The chosen product policy is a **rolling bounded window**: when the buffer limit is reached the oldest chunks are discarded and the newest are kept, so memory never grows without bound. The retained duration and the "rolling" nature are visible in the UI (e.g., "Replay local · rolling, keeps last ~20s"). The user can always Discard to clear the buffer.
 
 ## Lifecycle
 
 ```text
 Active + Start -> permission -> configure session -> start engine -> Listening
-Listening -> copy bounded PCM chunks to RAM and analyze them in parallel
-Stop -> remove tap -> Ready with replay available while session buffer exists
+Listening -> copy bounded PCM chunks to RAM (rolling window) and analyze them in parallel
+Stop -> finalize speech transcript with timeout -> remove tap -> Ready with replay available
 Replay -> schedule RAM buffers -> Playing -> stop/complete -> Ready
 Background/inactive -> stop capture and playback, remove tap safely -> Paused
+Audio interruption began -> stop capture and playback safely -> Paused
+Audio interruption ended -> stay Paused until explicit user action
 Foreground -> remain Paused until explicit Start; apply session-clear policy
 ```
 
-Do not rely on process-termination callbacks. No critical state is persisted.
+App lifecycle is observed via `scenePhase` in `ContentView` (`.inactive`/`.background`), and audio interruptions are observed via `AVAudioSession.interruptionNotification` in the view model. Do not rely on process-termination callbacks. No critical state is persisted.
 
 ## Permission and privacy
 
@@ -325,16 +359,17 @@ Add to `Info.plist`:
 
 Ask on Start, explain local processing and temporary in-memory replay. Never log raw audio, create a recording file, or upload anything. Clear the session buffer when the user discards it, when the session expires, and according to the background policy. Denied/restricted permission gets a clear Settings recovery path.
 
-AI analysis runs after Stop using the configured 9Router OpenAI-compatible endpoint with model `codexCombo`. API keys stay in ignored local configuration and must never be committed to the repository.
+AI analysis runs only when the user taps `Analyze with AI` after Stop, using the configured 9Router OpenAI-compatible endpoint with model `codexCombo`. API keys stay in ignored local configuration and must never be committed to the repository.
 
 ## Failure handling
 
 - Permission denied/restricted: clear state and Settings guidance; do not repeatedly prompt.
-- Audio setup/interruption/unavailable: stop safely and show a recoverable state.
+- Audio setup/interruption/unavailable: stop safely and show a recoverable state (Paused).
 - Buffer processing issue: drop the frame and continue; never crash.
-- Replay buffer limit reached: show a clear limit state and apply the configured retention policy; never grow memory without bound.
+- Replay buffer limit reached: the rolling policy discards the oldest chunks; the retained window is visible in the UI and memory never grows without bound.
 - Replay format/session error: stop playback safely and keep live visualization available.
 - Speech recognition unavailable/denied: continue audio visualization without transcript.
+- Speech recognition does not finalize within the timeout after Stop: cancel the in-flight task; the last partial text is kept.
 - AI request failure: keep the local summary and timeline available; show a recoverable network/configuration error.
 - Loud input: clamp visual values.
 - Repeated Start/Stop: never install duplicate taps.
@@ -345,7 +380,7 @@ Keep the audio callback lightweight; no UI work or unbounded allocations there. 
 
 ## Testing
 
-Unit-test normalization/clamping, silence, smoothing, feature extraction, valence/arousal mapping, emotion thresholds, color-wheel mapping, replay limits, and state transitions. Manually test permission, repeated start/stop, replay, discard, backgrounding, interruption, no raw file creation, bounded memory, and responsiveness. Physical iPhone testing is required for real microphone and speaker validation; Simulator is insufficient.
+Unit-test normalization/clamping, silence, smoothing, feature extraction, valence/arousal mapping, emotion thresholds, color-wheel mapping, the rolling replay policy and its duration math, and state transitions. Manually test permission, repeated start/stop, replay, discard, backgrounding, interruption, no raw file creation, bounded memory, and responsiveness. Physical iPhone testing is required for real microphone and speaker validation; Simulator is insufficient.
 
 ## Implementation phases
 
@@ -363,11 +398,11 @@ Unit-test normalization/clamping, silence, smoothing, feature extraction, valenc
 - Intensity changes brightness, scale, glow, and motion.
 - Live chart shows the current rolling audio signal while listening.
 - Stopped sessions show a color-coded emotion timeline and readable summary.
-- Current session can be replayed locally from bounded RAM buffers.
+- Current session can be replayed locally from a bounded rolling RAM window whose retention is visible in the UI.
 - No raw audio persistence/transmission and no unbounded memory growth.
 - Backgrounding, denial, interruption, and unavailable input are safe.
 - Audio processing does not block UI.
-- Analyzer, affect mapping, replay limits, and state transitions have focused tests.
+- Analyzer, affect mapping, the rolling replay policy, and state transitions have focused tests.
 
 ## Codex prompt
 
